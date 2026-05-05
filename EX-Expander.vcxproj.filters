@@ -1,0 +1,255 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Source Files\app">
+      <UniqueIdentifier>{f84d10dd-be9a-440f-bd45-897ce1c979f0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\core">
+      <UniqueIdentifier>{e760828d-50ad-49f5-a3fb-98546ed3b9d1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\db">
+      <UniqueIdentifier>{314e2803-8633-48c2-90f0-df89f2e05865}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\globals">
+      <UniqueIdentifier>{57562171-a2f2-4178-9997-2b7c7d01bcea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ui">
+      <UniqueIdentifier>{20c8fe16-b77d-417c-a65b-12468e300be9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\web_files">
+      <UniqueIdentifier>{cbdb53d9-2ac8-416e-8c63-cc583372a55d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ui\webui">
+      <UniqueIdentifier>{9244b721-7b58-4661-9837-a9bdb475ab00}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ui\popup">
+      <UniqueIdentifier>{22f30d96-8831-4045-a165-0082405dd67d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\helper">
+      <UniqueIdentifier>{a4bfe7b7-190e-471a-89d8-d2e0b0e02d5e}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\Database.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\EmojiMatcher.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\EmojiReplacer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\EX-Expander.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\framework.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ft2build.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Globals.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\InputBuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\KeyboardHook.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\targetver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="external\sqlite\sqlite3.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Helper.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="InstalledApps.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\popup\popup.h">
+      <Filter>Source Files\ui\popup</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\popup\PopupAnimation.h">
+      <Filter>Source Files\ui\popup</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\popup\PopupInput.h">
+      <Filter>Source Files\ui\popup</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\popup\PopupLayout.h">
+      <Filter>Source Files\ui\popup</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\popup\PopupRenderer.h">
+      <Filter>Source Files\ui\popup</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\popup\PopupState.h">
+      <Filter>Source Files\ui\popup</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\popup\PopupUtils.h">
+      <Filter>Source Files\ui\popup</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\popup\PopupWindow.h">
+      <Filter>Source Files\ui\popup</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\management_ui\InstalledAppsBridge.h">
+      <Filter>Source Files\ui\webui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\management_ui\WebJsonBuilder.h">
+      <Filter>Source Files\ui\webui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\management_ui\WebMessageHandler.h">
+      <Filter>Source Files\ui\webui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\management_ui\WebResources.h">
+      <Filter>Source Files\ui\webui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\management_ui\WebSettings.h">
+      <Filter>Source Files\ui\webui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\management_ui\webUI.h">
+      <Filter>Source Files\ui\webui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\management_ui\WebViewManager.h">
+      <Filter>Source Files\ui\webui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\helper\InstalledApps.h">
+      <Filter>Source Files\helper</Filter>
+    </ClInclude>
+    <ClInclude Include="src\helper\Settings.h">
+      <Filter>Source Files\helper</Filter>
+    </ClInclude>
+    <ClInclude Include="src\helper\StringUtils.h">
+      <Filter>Source Files\helper</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="EX-Expander.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="small.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="EX-Expander.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\app\App.cpp">
+      <Filter>Source Files\app</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\EmojiMatcher.cpp">
+      <Filter>Source Files\core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\EmojiReplacer.cpp">
+      <Filter>Source Files\core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\InputBuffer.cpp">
+      <Filter>Source Files\core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\KeyboardHook.cpp">
+      <Filter>Source Files\core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\data\Database.cpp">
+      <Filter>Source Files\db</Filter>
+    </ClCompile>
+    <ClCompile Include="src\globals\Globals.cpp">
+      <Filter>Source Files\globals</Filter>
+    </ClCompile>
+    <ClCompile Include="external\sqlite\sqlite3.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\popup\popup.cpp">
+      <Filter>Source Files\ui\popup</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\popup\PopupAnimation.cpp">
+      <Filter>Source Files\ui\popup</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\popup\PopupInput.cpp">
+      <Filter>Source Files\ui\popup</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\popup\PopupLayout.cpp">
+      <Filter>Source Files\ui\popup</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\popup\PopupRenderer.cpp">
+      <Filter>Source Files\ui\popup</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\popup\PopupState.cpp">
+      <Filter>Source Files\ui\popup</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\popup\PopupUtils.cpp">
+      <Filter>Source Files\ui\popup</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\popup\PopupWindow.cpp">
+      <Filter>Source Files\ui\popup</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\management_ui\InstalledAppsBridge.cpp">
+      <Filter>Source Files\ui\webui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\management_ui\WebJsonBuilder.cpp">
+      <Filter>Source Files\ui\webui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\management_ui\WebMessageHandler.cpp">
+      <Filter>Source Files\ui\webui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\management_ui\WebResources.cpp">
+      <Filter>Source Files\ui\webui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\management_ui\WebSettings.cpp">
+      <Filter>Source Files\ui\webui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\management_ui\webUI.cpp">
+      <Filter>Source Files\ui\webui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\management_ui\WebViewManager.cpp">
+      <Filter>Source Files\ui\webui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\helper\InstalledApps.cpp">
+      <Filter>Source Files\helper</Filter>
+    </ClCompile>
+    <ClCompile Include="src\helper\Settings.cpp">
+      <Filter>Source Files\helper</Filter>
+    </ClCompile>
+    <ClCompile Include="src\helper\StringUtils.cpp">
+      <Filter>Source Files\helper</Filter>
+    </ClCompile>
+    <ClCompile Include="src\data\Helper.cpp">
+      <Filter>Source Files\helper</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+    <None Include="app.js">
+      <Filter>Source Files\web_files</Filter>
+    </None>
+    <None Include="index.html">
+      <Filter>Source Files\web_files</Filter>
+    </None>
+    <None Include="styles.css">
+      <Filter>Source Files\web_files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <CopyFileToFolders Include="db\emoji.json">
+      <Filter>Source Files\db</Filter>
+    </CopyFileToFolders>
+  </ItemGroup>
+</Project>

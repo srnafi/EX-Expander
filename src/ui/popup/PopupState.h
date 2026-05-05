@@ -1,0 +1,81 @@
+#pragma once
+#include <windows.h>
+#include <d2d1.h>
+#include <dwrite.h>
+#include <wrl/client.h>
+
+using Microsoft::WRL::ComPtr;
+
+// UI constants
+namespace UI
+{
+    extern const float SpineWidth;
+    extern const float MaxWidth;
+    extern const float HorzPad;
+    extern const int   ItemHeight;
+    extern const int   Padding;
+    extern const float OuterRadius;
+    extern const float CardRadius;
+    extern const float FontCenter;
+    extern const float FontSide;
+}
+
+// Animation constants + toggle
+namespace Anim
+{
+    extern const int   TimerID;
+    extern const int   Interval;
+    extern const float SStiffness;
+    extern const float SDamping;
+    extern const float OStiffness;
+    extern const float ODamping;
+    extern const float Dt;
+    extern const float EpsS;
+    extern const float EpsO;
+
+    extern bool animEnabled;
+}
+
+// Runtime state
+namespace State
+{
+    extern HWND hwnd;
+    extern int  centerIndex;
+    extern int  lastKey;
+    extern bool timerActive;
+
+    struct Spring
+    {
+        float value;
+        float velocity;
+        float target;
+
+        void snap(float t);
+        void setTarget(float t);
+        bool step(float k, float b, float dt, float eps);
+    };
+
+    extern Spring scrollOffset;
+    extern Spring opacity;
+
+    extern float currentWidth;
+    extern float spineLeft;
+
+    extern bool  dragging;
+    extern POINT dragStart;
+    extern POINT winStart;
+}
+
+// Graphics resources
+namespace Gfx
+{
+    extern ComPtr<ID2D1Factory>        factory;
+    extern ComPtr<IDWriteFactory>      writeFactory;
+    extern ComPtr<ID2D1DCRenderTarget> dcRT;
+    extern ComPtr<IDWriteTextFormat>   fmtCenter;
+    extern ComPtr<IDWriteTextFormat>   fmtSide;
+}
+
+// Fixed popup position
+extern int g_PopupFixedX;
+extern int g_PopupFixedY;

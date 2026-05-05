@@ -1,0 +1,753 @@
+#include "ManagementDialog.h"
+#include "Database.h"
+#include "imgui.h"
+#include "imgui_impl_win32.h"
+#include "imgui_impl_dx11.h"
+#include <d3d11.h>
+#include <dxgi.h>
+#include <string>
+#include <vector>
+#include <thread>
+#include <atomic>
+#include <mutex>
+#include "imgui_freetype.h"
+#include "Globals.h"
+#include "EmojiReplacer.h"
+#include "InputBuffer.h"
+#include "EmojiMatcher.h"
+// Pulling this variable from your InputBuffer.cpp to know when you type ':'
+extern bool inTheBuffer;
+
+// This helper finds where your text typing cursor is on the screen
+static POINT GetCaretPosGlobal() {
+    POINT pt;
+    GetCursorPos(&pt); // Fallback to mouse cursor position
+    GUITHREADINFO guiInfo = { sizeof(GUITHREADINFO) };
+    if (GetGUIThreadInfo(0, &guiInfo) && guiInfo.hwndCaret) {
+        POINT caretPt;
+        caretPt.x = guiInfo.rcCaret.left;
+        caretPt.y = guiInfo.rcCaret.bottom;
+        ClientToScreen(guiInfo.hwndCaret, &caretPt);
+        pt = caretPt;
+    }
+    return pt;
+}
+static bool s_openEditPopup = false;
+// -----------------------------------------------------------------------
+// Helpers (String conversion between UTF-8 and wide strings)
+// -----------------------------------------------------------------------
+
+// Converts std::wstring (UTF-16, Windows default) → UTF-8 std::string
+static std::string WideToUtf8(const std::wstring& w)
+{
+    if (w.empty()) return "";
+
+    // Get required buffer size
+    int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, nullptr, 0, nullptr, nullptr);
+
+    // Allocate string (exclude null terminator)
+    std::string s(n - 1, 0);
+
+    // Perform conversion
+    WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, &s[0], n, nullptr, nullptr);
+    return s;
+}
+
+// Converts UTF-8 std::string → std::wstring (UTF-16)
+static std::wstring Utf8ToWide(const std::string& s)
+{
+    if (s.empty()) return L"";
+
+    int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
+
+    std::wstring w(n - 1, 0);
+    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, &w[0], n);
+    return w;
+}
+
+static void CenterTextV(const std::string& text, float rowHeight)
+{
+    float textHeight = ImGui::CalcTextSize(text.c_str()).y;
+
+    float offsetY = (rowHeight - textHeight) * 0.18f;
+
+    if (offsetY > 0.0f)
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + offsetY);
+
+    ImGui::TextUnformatted(text.c_str());
+}
+
+static POINT GetBestPopupPosition()
+{
+    POINT pt = { 0, 0 };
+
+    // 🔹 1. Try caret (best case)
+    GUITHREADINFO info = {};
+    info.cbSize = sizeof(info);
+
+    if (GetGUIThreadInfo(0, &info) && info.hwndCaret)
+    {
+        RECT rc = info.rcCaret;
+
+        pt.x = rc.left;
+        pt.y = rc.bottom;
+
+        ClientToScreen(info.hwndCaret, &pt);
+        return pt;
+    }
+
+    // 🔹 2. Try mouse position
+    if (GetCursorPos(&pt))
+    {
+        // If mouse is not (0,0), it's valid
+        if (!(pt.x == 0 && pt.y == 0))
+            return pt;
+    }
+
+    // 🔹 3. Fallback: center of screen
+    pt.x = GetSystemMetrics(SM_CXSCREEN) / 2;
+    pt.y = GetSystemMetrics(SM_CYSCREEN) / 2;
+
+    return pt;
+}
+// -----------------------------------------------------------------------
+// DX11 state (global graphics objects)
+// -----------------------------------------------------------------------
+
+static HWND g_hwnd = nullptr;                 // Window handle
+static ID3D11Device* g_pd3dDevice = nullptr; // GPU device
+static ID3D11DeviceContext* g_pd3dCtx = nullptr; // Rendering context
+static IDXGISwapChain* g_pSwapChain = nullptr;   // Buffer swapping (double buffering)
+static ID3D11RenderTargetView* g_pRTV = nullptr; // Render target (where we draw)
+
+// Creates DirectX 11 device + swap chain (graphics initialization)
+static bool CreateDeviceD3D()
+{
+    DXGI_SWAP_CHAIN_DESC sd = {};
+
+    // Double buffering
+    sd.BufferCount = 2;
+
+    // Width/height = 0 → auto match window
+    sd.BufferDesc.Width = 0;
+    sd.BufferDesc.Height = 0;
+
+    // RGBA format
+    sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+    // Refresh rate = 60Hz
+    sd.BufferDesc.RefreshRate.Numerator = 60;
+    sd.BufferDesc.RefreshRate.Denominator = 1;
+
+    // Allow fullscreen switching
+    sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+
+    // We render into this buffer
+    sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+
+    sd.OutputWindow = g_hwnd;
+
+    sd.SampleDesc.Count = 1; // No MSAA
+    sd.Windowed = TRUE;
+
+    sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+
+    UINT flags = 0;
+    D3D_FEATURE_LEVEL level;
+
+    // Supported feature levels
+    const D3D_FEATURE_LEVEL levels[] = {
+        D3D_FEATURE_LEVEL_11_0,
+        D3D_FEATURE_LEVEL_10_0
+    };
+
+    // Create device + swapchain
+    if (D3D11CreateDeviceAndSwapChain(
+        nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, flags,
+        levels, 2, D3D11_SDK_VERSION,
+        &sd, &g_pSwapChain,
+        &g_pd3dDevice, &level, &g_pd3dCtx) != S_OK)
+        return false;
+
+    // Get back buffer and create render target
+    ID3D11Texture2D* pBack = nullptr;
+    if (SUCCEEDED(g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBack))) && pBack)
+    {
+        g_pd3dDevice->CreateRenderTargetView(pBack, nullptr, &g_pRTV);
+        pBack->Release();
+    }
+    return true;
+}
+
+// Cleanup all DirectX resources
+static void CleanupDeviceD3D()
+{
+    if (g_pRTV) { g_pRTV->Release(); g_pRTV = nullptr; }
+    if (g_pSwapChain) { g_pSwapChain->Release(); g_pSwapChain = nullptr; }
+    if (g_pd3dCtx) { g_pd3dCtx->Release(); g_pd3dCtx = nullptr; }
+    if (g_pd3dDevice) { g_pd3dDevice->Release(); g_pd3dDevice = nullptr; }
+}
+
+// Recreate render target when window resizes
+static void RecreateRTV()
+{
+    if (g_pRTV) { g_pRTV->Release(); g_pRTV = nullptr; }
+
+    ID3D11Texture2D* pBack = nullptr;
+    g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBack));
+
+    g_pd3dDevice->CreateRenderTargetView(pBack, nullptr, &g_pRTV);
+    pBack->Release();
+}
+
+// -----------------------------------------------------------------------
+// Thread state (render loop runs in separate thread)
+// -----------------------------------------------------------------------
+
+static std::thread g_renderThread;
+static std::atomic<bool> g_running{ false };     // Controls main loop
+static std::atomic<bool> g_showRequest{ false }; // Request to show window
+static std::atomic<bool> g_imguiReady{ false };  // ImGui initialized flag
+static HINSTANCE g_hInst = nullptr;
+
+// -----------------------------------------------------------------------
+// UI state (input buffers, editing, status messages)
+// -----------------------------------------------------------------------
+
+static char s_searchBuf[64] = {};     // Search bar input
+static char s_tokenBuf[64] = {};      // New token input
+static char s_valueBuf[256] = {};     // New value input
+
+static int s_editId = -1;             // Currently editing ID
+static char s_editTokenBuf[64] = {};
+static char s_editValueBuf[256] = {};
+
+static std::string s_statusMsg = "";  // Status message text
+static float s_statusTimer = 0.0f;    // Time left to show message
+
+// Cache expansions to avoid DB calls every frame
+static std::vector<Expansion> s_cachedExpansions;
+static bool s_dataDirty = true;
+static std::mutex s_dbMutex;
+
+// Sets a temporary status message (visible for 3 seconds)
+static void SetStatus(const std::string& msg)
+{
+    s_statusMsg = msg;
+    s_statusTimer = 3.0f;
+}
+
+// -----------------------------------------------------------------------
+// Main UI rendering function (called every frame)
+// -----------------------------------------------------------------------
+
+static bool s_showMainWindow = false;
+
+static void RenderUI()
+{
+    ImGuiIO& io = ImGui::GetIO();
+
+    // When you click "Manage" in the tray, trigger the window to show
+    if (g_showRequest.exchange(false))
+    {
+        s_showMainWindow = true;
+        ImGui::SetNextWindowFocus(); // Bring it to the front
+    }
+
+    // If the user closed it, draw nothing!
+    if (!s_showMainWindow)
+        return;
+
+    // ImGui will naturally spawn this as a beautiful, smooth OS window
+    ImGui::SetNextWindowSize(ImVec2(720, 520), ImGuiCond_FirstUseEver);
+
+    // Notice we pass &s_showMainWindow. This creates a real 'X' close button!
+    if (ImGui::Begin("EasyEmoji — Expansion Manager", &s_showMainWindow, ImGuiWindowFlags_NoCollapse))
+    {
+        // Search bar
+        ImGui::SetNextItemWidth(300);
+        ImGui::InputTextWithHint("##search", "Search expansions...", s_searchBuf, sizeof(s_searchBuf));
+        ImGui::Spacing();
+
+        if (s_dataDirty)
+        {
+            std::lock_guard<std::mutex> lock(s_dbMutex);
+            s_cachedExpansions = DB_GetAllExpansions();
+            s_dataDirty = false;
+        }
+
+        std::vector<Expansion>& all = s_cachedExpansions;
+        std::string filterStr = s_searchBuf;
+
+        float availableHeight = ImGui::GetContentRegionAvail().y - 120;
+        if (availableHeight < 150) availableHeight = 150;
+        ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(6, 10));
+
+        // Begin table
+        if (ImGui::BeginTable("expansions", 4,
+            ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+            ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp,
+            ImVec2(0, availableHeight)))
+        {
+            ImGui::TableSetupColumn("Token", ImGuiTableColumnFlags_WidthStretch, 0.25f);
+            ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch, 0.45f);
+            ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthStretch, 0.15f);
+            ImGui::TableSetupColumn("Actions", ImGuiTableColumnFlags_WidthStretch, 0.15f);
+            ImGui::TableSetupScrollFreeze(0, 1);
+            ImGui::TableHeadersRow();
+
+            for (auto& exp : all)
+            {
+                std::string tok = WideToUtf8(exp.token);
+                std::string val = WideToUtf8(exp.value);
+                std::string typ = WideToUtf8(exp.type);
+
+                if (!filterStr.empty() && tok.find(filterStr) == std::string::npos && val.find(filterStr) == std::string::npos)
+                    continue;
+
+                float rowHeight = 40.0f;
+                ImGui::TableNextRow(ImGuiTableRowFlags_None, rowHeight);
+
+                ImGui::TableSetColumnIndex(0); CenterTextV(":" + tok, rowHeight);
+                ImGui::TableSetColumnIndex(1);
+                if (typ == "emoji") {
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.9f, 0.3f, 1.0f));
+                    CenterTextV(val, rowHeight);
+                    ImGui::PopStyleColor();
+                }
+                else {
+                    CenterTextV(val, rowHeight);
+                }
+                ImGui::TableSetColumnIndex(2); ImGui::TextDisabled("%s", typ.c_str());
+                ImGui::TableSetColumnIndex(3);
+                ImGui::PushID(exp.id);
+                if (ImGui::Button("Edit", ImVec2(60, 30))) {
+                    s_editId = exp.id;
+                    strncpy_s(s_editTokenBuf, tok.c_str(), sizeof(s_editTokenBuf));
+                    strncpy_s(s_editValueBuf, val.c_str(), sizeof(s_editValueBuf));
+                    s_openEditPopup = true;
+                }
+                ImGui::SameLine();
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.15f, 0.15f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.2f, 0.2f, 1.0f));
+                if (ImGui::Button("Del", ImVec2(60, 30))) {
+                    std::lock_guard<std::mutex> lock(s_dbMutex);
+                    DB_DeleteExpansion(exp.id);
+                    s_dataDirty = true;
+                    SetStatus("Deleted  :" + tok);
+                }
+                ImGui::PopStyleColor(2);
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+        }
+        ImGui::PopStyleVar();
+
+        // Edit popup Modal
+        if (s_openEditPopup) { ImGui::OpenPopup("EditPopup"); s_openEditPopup = false; }
+        ImGui::SetNextWindowSize(ImVec2(400, 160), ImGuiCond_Always);
+        if (ImGui::BeginPopupModal("EditPopup", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove))
+        {
+            if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+            ImGui::Text("Edit Expansion");
+            ImGui::Separator();
+            ImGui::Spacing();
+            float inputWidth = ImGui::GetContentRegionAvail().x * 0.65f;
+            ImGui::SetNextItemWidth(inputWidth);
+            ImGui::InputText("Token##e", s_editTokenBuf, sizeof(s_editTokenBuf));
+            ImGui::SetNextItemWidth(inputWidth);
+            ImGui::InputText("Value##e", s_editValueBuf, sizeof(s_editValueBuf));
+            ImGui::Spacing();
+            bool enterPressed = ImGui::IsKeyPressed(ImGuiKey_Enter);
+            if (ImGui::Button("Save", ImVec2(80, 0)) || enterPressed) {
+                std::wstring newTok = Utf8ToWide(s_editTokenBuf);
+                std::wstring newVal = Utf8ToWide(s_editValueBuf);
+                if (!newTok.empty() && !newVal.empty()) {
+                    bool success;
+                    {
+                        std::lock_guard<std::mutex> lock(s_dbMutex);
+                        success = DB_UpdateExpansion(s_editId, newTok, newVal, L"text");
+                    }
+                    if (success) SetStatus("Updated  :" + std::string(s_editTokenBuf));
+                    else SetStatus("Error: token may already exist.");
+                }
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", ImVec2(80, 0))) ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+
+        // Add new expansion
+        ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+        ImGui::Text("Add New Expansion"); ImGui::Spacing();
+        float addInputWidth = ImGui::GetContentRegionAvail().x * 0.35f;
+        ImGui::SetNextItemWidth(addInputWidth);
+        ImGui::InputTextWithHint("##tok", ":token  (e.g. shrug)", s_tokenBuf, sizeof(s_tokenBuf));
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(addInputWidth * 1.5f);
+        ImGui::InputTextWithHint("##val", "value  (e.g. ¯\\_(ツ)_/¯)", s_valueBuf, sizeof(s_valueBuf));
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.55f, 0.85f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.65f, 1.0f, 1.0f));
+        if (ImGui::Button("Add", ImVec2(60, 0))) {
+            std::wstring tok = Utf8ToWide(s_tokenBuf);
+            std::wstring val = Utf8ToWide(s_valueBuf);
+            if (!tok.empty() && !val.empty() && tok[0] != ' ') {
+                bool success;
+                {
+                    std::lock_guard<std::mutex> lock(s_dbMutex);
+                    success = DB_AddExpansion(tok, val, L"text");
+                }
+                if (success) { SetStatus("Added  :" + std::string(s_tokenBuf)); s_tokenBuf[0] = '\0'; s_valueBuf[0] = '\0'; }
+                else SetStatus("Error: token already exists.");
+            }
+            else SetStatus("Token and value cannot be empty.");
+        }
+        ImGui::PopStyleColor(2);
+
+        // Status bar
+        ImGui::Spacing();
+        if (!s_statusMsg.empty()) {
+            s_statusTimer -= io.DeltaTime;
+            if (s_statusTimer > 0.0f) ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "%s", s_statusMsg.c_str());
+            else s_statusMsg.clear();
+        }
+    }
+    ImGui::End();
+}
+
+// -----------------------------------------------------------------------
+// Forward-declare ImGui Win32 message handler
+// -----------------------------------------------------------------------
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(
+    HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+// -----------------------------------------------------------------------
+// Win32 window procedure for the ImGui host window
+// -----------------------------------------------------------------------
+static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+        return true;
+
+    switch (msg)
+    {
+    case WM_SIZE:
+        if (g_pd3dDevice && wParam != SIZE_MINIMIZED)
+        {
+            if (g_pRTV) { g_pRTV->Release(); g_pRTV = nullptr; }
+            g_pSwapChain->ResizeBuffers(0, LOWORD(lParam), HIWORD(lParam),
+                DXGI_FORMAT_UNKNOWN, 0);
+            RecreateRTV();
+        }
+        return 0;
+    case WM_CLOSE:
+        ShowWindow(hWnd, SW_HIDE);
+        return 0;
+    case WM_DESTROY:
+        g_running = false;
+        return 0;
+    }
+    return DefWindowProcW(hWnd, msg, wParam, lParam);
+}
+static int s_selectedIndex = 0;
+static bool s_navigationActive = false;
+static bool s_prevInBuffer = false;
+
+static void RenderSuggestionPopup()
+{
+    std::wstring token = BufferGetToken();
+    g_FilteredExpansions = GetMatches(token);
+    // Detect fresh ":" trigger (buffer just became active)
+    if (inTheBuffer && !s_prevInBuffer)
+    {
+        s_selectedIndex = 0;
+        s_navigationActive = false;
+    }
+    s_prevInBuffer = inTheBuffer;
+
+    if (!inTheBuffer)
+    {
+        s_navigationActive = false;
+        s_selectedIndex = 0;
+        s_prevInBuffer = false; // 🔥 THIS FIXES YOUR BUG
+        return;
+    }
+
+    //POINT pt = GetCaretPosGlobal();
+    //ImGui::SetNextWindowPos(ImVec2((float)pt.x, (float)pt.y + 25), ImGuiCond_Always);
+    POINT pt = GetBestPopupPosition();
+    ImGui::SetNextWindowPos(ImVec2((float)pt.x, (float)pt.y));
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 8));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 4));
+
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.12f, 0.12f, 0.14f, 0.95f));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.30f, 0.30f, 0.35f, 1.0f));
+
+    ImGuiWindowFlags flags =
+        ImGuiWindowFlags_NoDecoration |
+        ImGuiWindowFlags_AlwaysAutoResize |
+        ImGuiWindowFlags_NoFocusOnAppearing |
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoSavedSettings |
+        ImGuiWindowFlags_Tooltip;
+
+    if (ImGui::Begin("##emoji_popup", nullptr, flags))
+    {
+        int maxItems = (int)g_FilteredExpansions.size();
+        if (maxItems > 4) maxItems = 4;
+
+        if (maxItems == 0)
+        {
+            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Type to search...");
+        }
+        else
+        {
+            // Activate navigation ONLY after arrow press
+            if (!s_navigationActive)
+            {
+                if (GetAsyncKeyState(VK_DOWN) & 1 || GetAsyncKeyState(VK_UP) & 1)
+                {
+                    s_navigationActive = true;
+                }
+            }
+
+            // Navigation logic
+            if (s_navigationActive)
+            {
+                if (GetAsyncKeyState(VK_DOWN) & 1)
+                {
+                    s_selectedIndex = (s_selectedIndex + 1) % maxItems;
+                }
+
+                if (GetAsyncKeyState(VK_UP) & 1)
+                {
+                    s_selectedIndex--;
+                    if (s_selectedIndex < 0)
+                        s_selectedIndex = maxItems - 1;
+                }
+
+                if (GetAsyncKeyState(VK_RETURN) & 1)
+                {
+                    const Expansion& exp = g_FilteredExpansions[s_selectedIndex];
+
+                    ReplaceWithEmoji(exp.token, exp.value);
+                    BufferReset();
+
+                    // 🔥 FULL RESET (this fixes your bug)
+                    s_selectedIndex = 0;
+                    s_navigationActive = false;
+                    s_prevInBuffer = false;
+
+                    ImGui::End();
+                    ImGui::PopStyleColor(2);
+                    ImGui::PopStyleVar(3);
+                    return;
+                }
+            }
+
+            // Render items
+            for (int i = 0; i < maxItems; i++)
+            {
+                std::string valUtf8 = WideToUtf8(g_FilteredExpansions[i].value);
+                std::string tokUtf8 = WideToUtf8(g_FilteredExpansions[i].token);
+
+                std::string label = valUtf8 + "   :" + tokUtf8 + "##" + std::to_string(i);
+
+                bool selected = s_navigationActive && (i == s_selectedIndex);
+
+                if (ImGui::Selectable(label.c_str(), selected))
+                {
+                    const Expansion& exp = g_FilteredExpansions[i];
+
+                    ReplaceWithEmoji(exp.token, exp.value);
+                    BufferReset();
+
+                    // 🔥 FULL RESET (same fix)
+                    s_selectedIndex = 0;
+                    s_navigationActive = false;
+                    s_prevInBuffer = false;
+
+                    ImGui::End();
+                    ImGui::PopStyleColor(2);
+                    ImGui::PopStyleVar(3);
+                    return;
+                }
+
+                ImGui::Dummy(ImVec2(0, 4));
+            }
+        }
+    }
+    ImGui::End();
+
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(3);
+}
+
+// -----------------------------------------------------------------------
+// Render thread — owns the window, DX11 and ImGui loop
+// -----------------------------------------------------------------------
+static void RenderThreadFunc()
+{
+    WNDCLASSEXW wc = {};
+    wc.cbSize = sizeof(wc);
+    wc.style = CS_CLASSDC;
+    wc.lpfnWndProc = WndProc;
+    wc.hInstance = g_hInst;
+    wc.lpszClassName = L"EasyEmojiMgr";
+    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    RegisterClassExW(&wc);
+
+    g_hwnd = CreateWindowExW(
+        0,
+        L"EasyEmojiMgr",
+        L"EasyEmoji — Expansion Manager",
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT, 720, 520,
+        nullptr, nullptr, g_hInst, nullptr);
+
+    if (!CreateDeviceD3D())
+    {
+        UnregisterClassW(L"EasyEmojiMgr", g_hInst);
+        return;
+    }
+
+    // ImGui init
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    // ADD THIS LINE RIGHT HERE:
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    io.Fonts->Clear();
+
+    // Load main UI font (Inter)
+    ImFont* base = io.Fonts->AddFontFromFileTTF(
+        "assets/fonts/inter.otf",
+        14.0f // 👈 adjust size (18–22 sweet spot)
+    );
+    ImFontConfig config;
+    config.MergeMode = true;
+    config.FontLoaderFlags |= ImGuiFreeTypeLoaderFlags_LoadColor;  // Enable colored emoji
+
+    ImFont* emoji = io.Fonts->AddFontFromFileTTF(
+        "C:\\Windows\\Fonts\\seguiemj.ttf",  // ✅ System font, not NotoRegular.ttf
+        18.0f,
+        &config,
+        io.Fonts->GetGlyphRangesDefault()
+    );
+
+    if (!emoji)
+    {
+        MessageBoxA(NULL, "FONT NOT LOADED - Emoji may not display correctly", "WARNING", MB_OK);
+    }
+    
+    // Dark theme
+    ImGui::StyleColorsDark();
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.WindowRounding = 6.0f;
+    style.FrameRounding = 4.0f;
+    style.ItemSpacing = ImVec2(8, 6);
+    style.FramePadding = ImVec2(6, 4);
+    style.ScrollbarRounding = 4.0f;
+    style.GrabRounding = 4.0f;
+    style.Colors[ImGuiCol_WindowBg] = ImVec4(0.10f, 0.10f, 0.13f, 1.0f);
+    style.Colors[ImGuiCol_Header] = ImVec4(0.20f, 0.40f, 0.60f, 0.65f);
+    style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.25f, 0.50f, 0.75f, 0.80f);
+    style.Colors[ImGuiCol_FrameBg] = ImVec4(0.16f, 0.16f, 0.20f, 1.0f);
+    style.Colors[ImGuiCol_TableRowBg] = ImVec4(0.12f, 0.12f, 0.15f, 1.0f);
+    style.Colors[ImGuiCol_TableRowBgAlt] = ImVec4(0.16f, 0.16f, 0.20f, 1.0f);
+
+    ImGui_ImplWin32_Init(g_hwnd);
+    ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dCtx);
+
+    // ✅ FIX: Signal that ImGui is ready (fixes assertion crash)
+    g_imguiReady = true;
+    g_running = true;
+
+    const ImVec4 clearColor(0.10f, 0.10f, 0.13f, 1.0f);
+    while (g_running)
+    {
+        // NO MORE ShowWindow or SetForegroundWindow HERE.
+        // It's all handled dynamically by ImGui inside RenderUI!
+
+        MSG msg;
+        while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
+        {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+            if (msg.message == WM_QUIT)
+                g_running = false;
+        }
+        if (!g_running) break;
+
+        ImGui_ImplDX11_NewFrame();
+        ImGui_ImplWin32_NewFrame();
+        ImGui::NewFrame();
+
+        RenderUI();
+        RenderSuggestionPopup();
+
+        ImGui::Render();
+
+        // Since g_hwnd is permanently hidden, we don't strictly need to clear it,
+        // but doing it prevents DX11 warnings.
+        if (IsWindowVisible(g_hwnd)) {
+            g_pd3dCtx->OMSetRenderTargets(1, &g_pRTV, nullptr);
+            g_pd3dCtx->ClearRenderTargetView(g_pRTV, (float*)&clearColor);
+            ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+            if (g_pSwapChain) g_pSwapChain->Present(1, 0);
+        }
+
+        // This draws BOTH the Main Window and the Tooltip popups
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+        {
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+        }
+
+        // Keep CPU usage near 0% when idling in the background
+        if (!s_showMainWindow && !inTheBuffer)
+            Sleep(50);
+        else
+            Sleep(10);
+    }
+
+    ImGui_ImplDX11_Shutdown();
+    ImGui_ImplWin32_Shutdown();
+    ImGui::DestroyContext();
+    CleanupDeviceD3D();
+    DestroyWindow(g_hwnd);
+    UnregisterClassW(L"EasyEmojiMgr", g_hInst);
+}
+
+// -----------------------------------------------------------------------
+// Public API
+// -----------------------------------------------------------------------
+void ManagementDialog_Init(HINSTANCE hInstance)
+{
+    g_hInst = hInstance;
+    g_imguiReady = false;  // Reset ready flag
+    g_renderThread = std::thread(RenderThreadFunc);
+}
+
+void ManagementDialog_Show()
+{
+    // ✅ FIX: Wait for ImGui to be ready before showing (fixes assertion crash)
+    for (int i = 0; i < 50 && !g_imguiReady.load(); ++i)
+        Sleep(100);
+
+    if (g_imguiReady.load())
+        g_showRequest = true;
+}
+
+void ManagementDialog_Shutdown()
+{
+    g_running = false;
+    if (g_renderThread.joinable())
+        g_renderThread.join();
+}

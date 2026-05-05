@@ -1,0 +1,33 @@
+# Build outputs
+Debug/
+Release/
+x64/
+x86/
+build/
+db/
+EX-Expander/
+installer/
+*.obj
+*.exe
+*.dll
+*.lib
+*.pdb
+
+# Visual Studio
+.vs/
+*.vcxproj.user
+*.sln.DotSettings
+
+# Dependencies (if you commit them)
+# OR add to .gitignore if you use vcpkg/conan:
+vcpkg_installed/
+packages/
+
+# IDE
+.vscode/
+*.sublime-project
+
+# Misc
+*.log
+.DS_Store
+Thumbs.db
