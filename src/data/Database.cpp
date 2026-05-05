@@ -1,5 +1,7 @@
 #include "Database.h"
 #include <windows.h>
+#include <string>
+#include <vector>
 #include <cwctype>
 #include <fstream>
 #include <sstream>
@@ -10,171 +12,32 @@
 using json = nlohmann::json;
 
 // ---------------------------------------------------------------------------
-// Utf8Param Implementation
+// GLOBAL DB HANDLE
 // ---------------------------------------------------------------------------
 
-Utf8Param::Utf8Param(const std::wstring& ws)
-    : data(WideToUtf8(ws))
-{
-}
-
-const char* Utf8Param::c_str() const
-{
-    return data.c_str();
-}
-
-int Utf8Param::length() const
-{
-    return static_cast<int>(data.length());
-}
+static sqlite3* g_db = nullptr;
 
 // ---------------------------------------------------------------------------
-// Database Implementation
+// SQLITE STATEMENT RAII WRAPPER
 // ---------------------------------------------------------------------------
 
-Database::Database(const std::wstring& dbPath)
-    : db(nullptr), dbPath(dbPath), lastError("")
+class Statement
 {
-}
+public:
+    sqlite3_stmt* stmt = nullptr;
 
-Database::~Database()
-{
-    Close();
-}
-
-bool Database::Open()
-{
-    std::string dbPathUtf8 = WideToUtf8(dbPath);
-
-    if (sqlite3_open(dbPathUtf8.c_str(), &db) != SQLITE_OK)
+    ~Statement()
     {
-        SetLastError("Failed to open database");
-        if (db)
-        {
-            sqlite3_close(db);
-            db = nullptr;
-        }
-        return false;
+        if (stmt)
+            sqlite3_finalize(stmt);
     }
-
-    // Create tables
-    const char* createExpansions =
-        "CREATE TABLE IF NOT EXISTS expansions ("
-        "  id         INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "  token      TEXT    NOT NULL UNIQUE,"
-        "  value      TEXT    NOT NULL,"
-        "  type       TEXT    NOT NULL DEFAULT 'text',"
-        "  created_at TEXT    DEFAULT (datetime('now'))"
-        ");";
-
-    const char* createExtra =
-        "CREATE TABLE IF NOT EXISTS emoji_meta ("
-        "  id           INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "  expansion_id INTEGER,"
-        "  category     TEXT,"
-        "  FOREIGN KEY (expansion_id) REFERENCES expansions(id)"
-        ");"
-
-        "CREATE TABLE IF NOT EXISTS emoji_tags ("
-        "  id           INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "  expansion_id INTEGER,"
-        "  tag          TEXT,"
-        "  FOREIGN KEY (expansion_id) REFERENCES expansions(id)"
-        ");";
-
-    const char* createSettings =
-        "CREATE TABLE IF NOT EXISTS app_settings ("
-        "  key   TEXT PRIMARY KEY,"
-        "  value TEXT NOT NULL"
-        ");";
-
-    // Create indexes for faster searches
-    const char* createIndexes =
-        "CREATE INDEX IF NOT EXISTS idx_token_prefix ON expansions(token);"
-        "CREATE INDEX IF NOT EXISTS idx_expansion_tag ON emoji_tags(expansion_id);";
-
-    char* errMsg = nullptr;
-
-    if (sqlite3_exec(db, createExpansions, nullptr, nullptr, &errMsg) != SQLITE_OK)
-    {
-        SetLastError(errMsg ? errMsg : "Failed to create expansions table");
-        sqlite3_free(errMsg);
-        sqlite3_close(db);
-        db = nullptr;
-        return false;
-    }
-
-    sqlite3_exec(db, createExtra, nullptr, nullptr, nullptr);
-    sqlite3_exec(db, createSettings, nullptr, nullptr, nullptr);
-    sqlite3_exec(db, createIndexes, nullptr, nullptr, nullptr);
-
-    return true;
-}
-
-void Database::Close()
-{
-    if (db)
-    {
-        sqlite3_close(db);
-        db = nullptr;
-    }
-}
-
-bool Database::IsOpen() const
-{
-    return db != nullptr;
-}
-
-Statement Database::Prepare(const char* sql)
-{
-    Statement s;
-    if (!db)
-    {
-        SetLastError("Database not open");
-        return s;
-    }
-
-    if (sqlite3_prepare_v2(db, sql, -1, &s.stmt, nullptr) != SQLITE_OK)
-    {
-        SetLastError(sqlite3_errmsg(db));
-    }
-
-    return s;
-}
-
-void Database::SetLastError(const std::string& error)
-{
-    lastError = error;
-}
-
-std::string Database::GetLastError() const
-{
-    return lastError;
-}
-
-DbError Database::SqliteToDbError(int sqliteCode)
-{
-    switch (sqliteCode)
-    {
-        case SQLITE_OK:
-        case SQLITE_DONE:
-            return DbError::OK;
-        case SQLITE_CONSTRAINT:
-            return DbError::CONSTRAINT_VIOLATION;
-        case SQLITE_LOCKED:
-            return DbError::DATABASE_LOCKED;
-        case SQLITE_IOERR:
-            return DbError::IO_ERROR;
-        default:
-            return DbError::UNKNOWN;
-    }
-}
+};
 
 // ---------------------------------------------------------------------------
-// Token Validation
+// TOKEN VALIDATION
 // ---------------------------------------------------------------------------
 
-bool Database::IsValidToken(const std::wstring& token)
+bool IsValidToken(const std::wstring& token)
 {
     if (token.empty() || token.size() > 50)
         return false;
@@ -197,11 +60,16 @@ bool Database::IsValidToken(const std::wstring& token)
     return true;
 }
 
+
+
+
+
 // ---------------------------------------------------------------------------
-// Tag Helpers
+// TAG HELPERS
 // ---------------------------------------------------------------------------
 
-std::vector<std::wstring> Database::SplitTags(const std::wstring& csv)
+// Splits a comma-delimited wide string into a trimmed vector
+static std::vector<std::wstring> SplitTagsW(const std::wstring& csv)
 {
     std::vector<std::wstring> out;
     if (csv.empty()) return out;
@@ -221,213 +89,256 @@ std::vector<std::wstring> Database::SplitTags(const std::wstring& csv)
     return out;
 }
 
-void Database::InsertTags(int expansionId, const std::vector<std::wstring>& tags)
+// Inserts tags for a given expansion id into emoji_tags
+static void InsertTags(int expansionId, const std::vector<std::wstring>& tags)
 {
-    if (!db) return;
-
     for (const auto& tag : tags)
     {
         if (tag.empty()) continue;
 
-        Statement s = Prepare("INSERT INTO emoji_tags (expansion_id, tag) VALUES (?, ?);");
-        if (!s.IsValid())
+        Statement ts;
+        if (sqlite3_prepare_v2(g_db,
+            "INSERT INTO emoji_tags (expansion_id, tag) VALUES (?, ?);",
+            -1, &ts.stmt, nullptr) != SQLITE_OK)
             continue;
 
-        Utf8Param tagUtf8(tag);
-        sqlite3_bind_int(s.stmt, 1, expansionId);
-        sqlite3_bind_text(s.stmt, 2, tagUtf8.c_str(), tagUtf8.length(), SQLITE_TRANSIENT);
-        sqlite3_step(s.stmt);
+        std::string tagUtf8 = WideToUtf8(tag);
+        sqlite3_bind_int(ts.stmt, 1, expansionId);
+        sqlite3_bind_text(ts.stmt, 2, tagUtf8.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_step(ts.stmt);
     }
 }
 
-void Database::DeleteTags(int expansionId)
+// Deletes all tags for a given expansion id
+static void DeleteTags(int expansionId)
 {
-    if (!db) return;
-
-    Statement s = Prepare("DELETE FROM emoji_tags WHERE expansion_id=?;");
-    if (!s.IsValid())
+    Statement ds;
+    if (sqlite3_prepare_v2(g_db,
+        "DELETE FROM emoji_tags WHERE expansion_id=?;",
+        -1, &ds.stmt, nullptr) != SQLITE_OK)
         return;
 
-    sqlite3_bind_int(s.stmt, 1, expansionId);
-    sqlite3_step(s.stmt);
+    sqlite3_bind_int(ds.stmt, 1, expansionId);
+    sqlite3_step(ds.stmt);
 }
 
 // ---------------------------------------------------------------------------
-// Row Parser
+// SHARED ROW → Expansion PARSER
+// Columns must be: 0=id, 1=token, 2=value, 3=type, 4=GROUP_CONCAT(tag)
 // ---------------------------------------------------------------------------
 
-Expansion Database::RowToExpansion(sqlite3_stmt* stmt, const RowIndex& idx)
+static Expansion RowToExpansion(sqlite3_stmt* stmt)
 {
     Expansion e;
-    e.id = sqlite3_column_int(stmt, idx.id);
-    e.token = Utf8ToWide((const char*)sqlite3_column_text(stmt, idx.token));
-    e.value = Utf8ToWide((const char*)sqlite3_column_text(stmt, idx.value));
-    e.type = Utf8ToWide((const char*)sqlite3_column_text(stmt, idx.type));
+    e.id = sqlite3_column_int(stmt, 0);
+    e.token = Utf8ToWide((const char*)sqlite3_column_text(stmt, 1));
+    e.value = Utf8ToWide((const char*)sqlite3_column_text(stmt, 2));
+    e.type = Utf8ToWide((const char*)sqlite3_column_text(stmt, 3));
 
-    const char* tagsRaw = (const char*)sqlite3_column_text(stmt, idx.tags);
+    const char* tagsRaw = (const char*)sqlite3_column_text(stmt, 4);
     if (tagsRaw && *tagsRaw)
-        e.tags = SplitTags(Utf8ToWide(tagsRaw));
+        e.tags = SplitTagsW(Utf8ToWide(tagsRaw));
 
     return e;
 }
 
+// SQL shared by GetAll and Search – differs only in WHERE clause
+static const char* kSelectWithTags =
+"SELECT e.id, e.token, e.value, e.type, "
+"       GROUP_CONCAT(t.tag, ',') "
+"FROM   expansions e "
+"LEFT JOIN emoji_tags t ON t.expansion_id = e.id ";
+
 // ---------------------------------------------------------------------------
-// CRUD Operations
+// OPEN DATABASE
 // ---------------------------------------------------------------------------
 
-DbError Database::AddExpansion(const std::wstring& token,
+bool DB_Open()
+{
+    std::wstring appDir = GetAppDataDir();
+    std::wstring dbPathW = appDir + L"\\easyemoji.db";
+    std::string  dbPath = WideToUtf8(dbPathW);
+
+    if (sqlite3_open(dbPath.c_str(), &g_db) != SQLITE_OK)
+    {
+        sqlite3_close(g_db);
+        g_db = nullptr;
+        return false;
+    }
+
+    // Main expansions table
+    const char* createExpansions =
+        "CREATE TABLE IF NOT EXISTS expansions ("
+        "  id         INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "  token      TEXT    NOT NULL UNIQUE,"
+        "  value      TEXT    NOT NULL,"
+        "  type       TEXT    NOT NULL DEFAULT 'text',"
+        "  created_at TEXT    DEFAULT (datetime('now'))"
+        ");";
+
+    // Emoji meta / tags tables
+    const char* createExtra =
+        "CREATE TABLE IF NOT EXISTS emoji_meta ("
+        "  id           INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "  expansion_id INTEGER,"
+        "  category     TEXT,"
+        "  FOREIGN KEY (expansion_id) REFERENCES expansions(id)"
+        ");"
+
+        "CREATE TABLE IF NOT EXISTS emoji_tags ("
+        "  id           INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "  expansion_id INTEGER,"
+        "  tag          TEXT,"
+        "  FOREIGN KEY (expansion_id) REFERENCES expansions(id)"
+        ");";
+
+    // Key-value settings store
+    const char* createSettings =
+        "CREATE TABLE IF NOT EXISTS app_settings ("
+        "  key   TEXT PRIMARY KEY,"
+        "  value TEXT NOT NULL"
+        ");";
+
+    char* errMsg = nullptr;
+
+    if (sqlite3_exec(g_db, createExpansions, nullptr, nullptr, &errMsg) != SQLITE_OK)
+    {
+        sqlite3_free(errMsg);
+        sqlite3_close(g_db);
+        g_db = nullptr;
+        return false;
+    }
+
+    sqlite3_exec(g_db, createExtra, nullptr, nullptr, nullptr);
+    sqlite3_exec(g_db, createSettings, nullptr, nullptr, nullptr);
+
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// CLOSE DATABASE
+// ---------------------------------------------------------------------------
+
+void DB_Close()
+{
+    if (g_db)
+    {
+        sqlite3_close(g_db);
+        g_db = nullptr;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ADD EXPANSION  (with optional tags)
+// ---------------------------------------------------------------------------
+
+bool DB_AddExpansion(const std::wstring& token,
     const std::wstring& value,
     const std::wstring& type,
     const std::vector<std::wstring>& tags)
 {
-    if (!db)
-    {
-        SetLastError("Database not open");
-        return DbError::NOT_OPEN;
-    }
-
-    if (!IsValidToken(token))
-    {
-        SetLastError("Invalid token");
-        return DbError::CONSTRAINT_VIOLATION;
-    }
-
-    if (value.empty())
-    {
-        SetLastError("Value cannot be empty");
-        return DbError::CONSTRAINT_VIOLATION;
-    }
+    if (!g_db || !IsValidToken(token) || value.empty())
+        return false;
 
     const char* sql =
         "INSERT INTO expansions (token, value, type) VALUES (?, ?, ?);";
 
-    Statement s = Prepare(sql);
-    if (!s.IsValid())
-        return DbError::PREPARE_ERROR;
+    Statement s;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &s.stmt, nullptr) != SQLITE_OK)
+        return false;
 
-    Utf8Param tokenUtf8(token);
-    Utf8Param valueUtf8(value);
-    Utf8Param typeUtf8(type);
+    std::string tokenUtf8 = WideToUtf8(token);
+    std::string valueUtf8 = WideToUtf8(value);
+    std::string typeUtf8 = WideToUtf8(type);
 
-    sqlite3_bind_text(s.stmt, 1, tokenUtf8.c_str(), tokenUtf8.length(), SQLITE_TRANSIENT);
-    sqlite3_bind_text(s.stmt, 2, valueUtf8.c_str(), valueUtf8.length(), SQLITE_TRANSIENT);
-    sqlite3_bind_text(s.stmt, 3, typeUtf8.c_str(), typeUtf8.length(), SQLITE_TRANSIENT);
+    sqlite3_bind_text(s.stmt, 1, tokenUtf8.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(s.stmt, 2, valueUtf8.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(s.stmt, 3, typeUtf8.c_str(), -1, SQLITE_TRANSIENT);
 
-    int result = sqlite3_step(s.stmt);
-    if (result != SQLITE_DONE)
-    {
-        SetLastError(sqlite3_errmsg(db));
-        return SqliteToDbError(result);
-    }
+    if (sqlite3_step(s.stmt) != SQLITE_DONE)
+        return false;
 
-    int id = (int)sqlite3_last_insert_rowid(db);
+    int id = (int)sqlite3_last_insert_rowid(g_db);
     InsertTags(id, tags);
 
-    return DbError::OK;
+    return true;
 }
 
-DbError Database::UpdateExpansion(int id,
+// ---------------------------------------------------------------------------
+// UPDATE EXPANSION  (with optional tags)
+// ---------------------------------------------------------------------------
+
+bool DB_UpdateExpansion(int id,
     const std::wstring& token,
     const std::wstring& value,
     const std::wstring& type,
     const std::vector<std::wstring>& tags)
 {
-    if (!db)
-    {
-        SetLastError("Database not open");
-        return DbError::NOT_OPEN;
-    }
-
-    if (!IsValidToken(token))
-    {
-        SetLastError("Invalid token");
-        return DbError::CONSTRAINT_VIOLATION;
-    }
-
-    if (value.empty())
-    {
-        SetLastError("Value cannot be empty");
-        return DbError::CONSTRAINT_VIOLATION;
-    }
+    if (!g_db || !IsValidToken(token) || value.empty())
+        return false;
 
     const char* sql =
         "UPDATE expansions SET token=?, value=?, type=? WHERE id=?;";
 
-    Statement s = Prepare(sql);
-    if (!s.IsValid())
-        return DbError::PREPARE_ERROR;
+    Statement s;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &s.stmt, nullptr) != SQLITE_OK)
+        return false;
 
-    Utf8Param tokenUtf8(token);
-    Utf8Param valueUtf8(value);
-    Utf8Param typeUtf8(type);
+    std::string tokenUtf8 = WideToUtf8(token);
+    std::string valueUtf8 = WideToUtf8(value);
+    std::string typeUtf8 = WideToUtf8(type);
 
-    sqlite3_bind_text(s.stmt, 1, tokenUtf8.c_str(), tokenUtf8.length(), SQLITE_TRANSIENT);
-    sqlite3_bind_text(s.stmt, 2, valueUtf8.c_str(), valueUtf8.length(), SQLITE_TRANSIENT);
-    sqlite3_bind_text(s.stmt, 3, typeUtf8.c_str(), typeUtf8.length(), SQLITE_TRANSIENT);
+    sqlite3_bind_text(s.stmt, 1, tokenUtf8.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(s.stmt, 2, valueUtf8.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(s.stmt, 3, typeUtf8.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(s.stmt, 4, id);
 
-    int result = sqlite3_step(s.stmt);
-    if (result != SQLITE_DONE)
-    {
-        SetLastError(sqlite3_errmsg(db));
-        return SqliteToDbError(result);
-    }
+    if (sqlite3_step(s.stmt) != SQLITE_DONE)
+        return false;
 
     // Replace tags: delete old ones then re-insert
     DeleteTags(id);
     InsertTags(id, tags);
 
-    return DbError::OK;
+    return true;
 }
 
-DbError Database::DeleteExpansion(int id)
+// ---------------------------------------------------------------------------
+// DELETE
+// ---------------------------------------------------------------------------
+
+bool DB_DeleteExpansion(int id)
 {
-    if (!db)
-    {
-        SetLastError("Database not open");
-        return DbError::NOT_OPEN;
-    }
+    if (!g_db) return false;
 
     // Cascade-delete tags first (FK may not enforce ON DELETE CASCADE)
     DeleteTags(id);
 
     const char* sql = "DELETE FROM expansions WHERE id=?;";
-    Statement s = Prepare(sql);
-    if (!s.IsValid())
-        return DbError::PREPARE_ERROR;
+    Statement s;
+    if (sqlite3_prepare_v2(g_db, sql, -1, &s.stmt, nullptr) != SQLITE_OK)
+        return false;
 
     sqlite3_bind_int(s.stmt, 1, id);
-    int result = sqlite3_step(s.stmt);
-
-    if (result != SQLITE_DONE)
-    {
-        SetLastError(sqlite3_errmsg(db));
-        return SqliteToDbError(result);
-    }
-
-    return DbError::OK;
+    return sqlite3_step(s.stmt) == SQLITE_DONE;
 }
 
 // ---------------------------------------------------------------------------
-// Queries
+// GET ALL  (includes tags via LEFT JOIN + GROUP_CONCAT)
 // ---------------------------------------------------------------------------
 
-std::vector<Expansion> Database::GetAllExpansions()
+std::vector<Expansion> DB_GetAllExpansions()
 {
     std::vector<Expansion> results;
-    if (!db)
-    {
-        SetLastError("Database not open");
-        return results;
-    }
+    if (!g_db) return results;
 
     std::string sql =
-        std::string(SELECT_WITH_TAGS) +
+        std::string(kSelectWithTags) +
         "GROUP BY e.id "
         "ORDER BY e.token ASC;";
 
-    Statement s = Prepare(sql.c_str());
-    if (!s.IsValid())
+    Statement s;
+    if (sqlite3_prepare_v2(g_db, sql.c_str(), -1, &s.stmt, nullptr) != SQLITE_OK)
         return results;
 
     while (sqlite3_step(s.stmt) == SQLITE_ROW)
@@ -436,17 +347,17 @@ std::vector<Expansion> Database::GetAllExpansions()
     return results;
 }
 
-std::vector<Expansion> Database::Search(const std::wstring& query)
+// ---------------------------------------------------------------------------
+// SEARCH  (prefix match on token; includes tags)
+// ---------------------------------------------------------------------------
+
+std::vector<Expansion> DB_Search(const std::wstring& query)
 {
     std::vector<Expansion> results;
-    if (!db)
-    {
-        SetLastError("Database not open");
-        return results;
-    }
+    if (!g_db) return results;
 
     std::string sql =
-        std::string(SELECT_WITH_TAGS) +
+        std::string(kSelectWithTags) +
         "WHERE e.token LIKE ? "
         "   OR t.tag LIKE ? "
         "GROUP BY e.id "
@@ -454,13 +365,13 @@ std::vector<Expansion> Database::Search(const std::wstring& query)
         "   CASE WHEN e.token LIKE ? THEN 0 ELSE 1 END, "
         "   e.token ASC;";
 
-    Statement s = Prepare(sql.c_str());
-    if (!s.IsValid())
+    Statement s;
+    if (sqlite3_prepare_v2(g_db, sql.c_str(), -1, &s.stmt, nullptr) != SQLITE_OK)
         return results;
 
-    Utf8Param q(query);
-    std::string prefix = std::string(q.c_str()) + "%";
-    std::string contains = "%" + std::string(q.c_str()) + "%";
+    std::string q = WideToUtf8(query);
+    std::string prefix = q + "%";
+    std::string contains = "%" + q + "%";
 
     // token prefix
     sqlite3_bind_text(s.stmt, 1, prefix.c_str(), -1, SQLITE_TRANSIENT);
@@ -477,145 +388,94 @@ std::vector<Expansion> Database::Search(const std::wstring& query)
     return results;
 }
 
-bool Database::IsEmpty()
-{
-    if (!db)
-        return true;
-
-    const char* sql = "SELECT COUNT(*) FROM expansions;";
-    Statement s = Prepare(sql);
-    if (!s.IsValid())
-        return true;
-
-    bool empty = true;
-    if (sqlite3_step(s.stmt) == SQLITE_ROW)
-        empty = (sqlite3_column_int(s.stmt, 0) == 0);
-
-    return empty;
-}
-
 // ---------------------------------------------------------------------------
-// Settings
+// SETTINGS  (simple key-value store in app_settings table)
 // ---------------------------------------------------------------------------
 
-std::wstring Database::GetSetting(const std::wstring& key, const std::wstring& defaultVal)
+std::wstring DB_GetSetting(const std::wstring& key, const std::wstring& defaultVal)
 {
-    if (!db)
+    if (!g_db) return defaultVal;
+
+    Statement s;
+    if (sqlite3_prepare_v2(g_db,
+        "SELECT value FROM app_settings WHERE key=?;",
+        -1, &s.stmt, nullptr) != SQLITE_OK)
         return defaultVal;
 
-    Statement s = Prepare("SELECT value FROM app_settings WHERE key=?;");
-    if (!s.IsValid())
-        return defaultVal;
-
-    Utf8Param keyUtf8(key);
-    sqlite3_bind_text(s.stmt, 1, keyUtf8.c_str(), keyUtf8.length(), SQLITE_TRANSIENT);
+    std::string keyUtf8 = WideToUtf8(key);
+    sqlite3_bind_text(s.stmt, 1, keyUtf8.c_str(), -1, SQLITE_TRANSIENT);
 
     if (sqlite3_step(s.stmt) == SQLITE_ROW)
     {
         const char* val = (const char*)sqlite3_column_text(s.stmt, 0);
-        if (val)
-            return Utf8ToWide(val);
+        if (val) return Utf8ToWide(val);
     }
 
     return defaultVal;
 }
 
-bool Database::SetSetting(const std::wstring& key, const std::wstring& value)
+bool DB_SetSetting(const std::wstring& key, const std::wstring& value)
 {
-    if (!db)
+    if (!g_db) return false;
+
+    Statement s;
+    if (sqlite3_prepare_v2(g_db,
+        "INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?);",
+        -1, &s.stmt, nullptr) != SQLITE_OK)
         return false;
 
-    Statement s = Prepare(
-        "INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?);");
-    if (!s.IsValid())
-        return false;
+    std::string keyUtf8 = WideToUtf8(key);
+    std::string valueUtf8 = WideToUtf8(value);
 
-    Utf8Param keyUtf8(key);
-    Utf8Param valueUtf8(value);
-
-    sqlite3_bind_text(s.stmt, 1, keyUtf8.c_str(), keyUtf8.length(), SQLITE_TRANSIENT);
-    sqlite3_bind_text(s.stmt, 2, valueUtf8.c_str(), valueUtf8.length(), SQLITE_TRANSIENT);
+    sqlite3_bind_text(s.stmt, 1, keyUtf8.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(s.stmt, 2, valueUtf8.c_str(), -1, SQLITE_TRANSIENT);
 
     return sqlite3_step(s.stmt) == SQLITE_DONE;
 }
 
 // ---------------------------------------------------------------------------
-// Transactions
+// DB_IsEmpty
 // ---------------------------------------------------------------------------
 
-DbError Database::BeginTransaction()
+bool DB_IsEmpty()
 {
-    if (!db)
-        return DbError::NOT_OPEN;
+    const char* sql = "SELECT COUNT(*) FROM expansions;";
+    sqlite3_stmt* stmt = nullptr;
 
-    int result = sqlite3_exec(db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
-    if (result != SQLITE_OK)
-    {
-        SetLastError(sqlite3_errmsg(db));
-        return SqliteToDbError(result);
-    }
-    return DbError::OK;
-}
+    if (sqlite3_prepare_v2(g_db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+        return true;
 
-DbError Database::CommitTransaction()
-{
-    if (!db)
-        return DbError::NOT_OPEN;
+    bool empty = true;
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+        empty = (sqlite3_column_int(stmt, 0) == 0);
 
-    int result = sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
-    if (result != SQLITE_OK)
-    {
-        SetLastError(sqlite3_errmsg(db));
-        return SqliteToDbError(result);
-    }
-    return DbError::OK;
-}
-
-DbError Database::RollbackTransaction()
-{
-    if (!db)
-        return DbError::NOT_OPEN;
-
-    int result = sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
-    if (result != SQLITE_OK)
-    {
-        SetLastError(sqlite3_errmsg(db));
-        return SqliteToDbError(result);
-    }
-    return DbError::OK;
+    sqlite3_finalize(stmt);
+    return empty;
 }
 
 // ---------------------------------------------------------------------------
-// Seeding from JSON
+// SEED FROM JSON
+// (unchanged – still inserts tags separately after DB_AddExpansion)
 // ---------------------------------------------------------------------------
 
-DbError Database::SeedFromJson(const std::wstring& path)
+void SeedFromJson(const std::wstring& path)
 {
     std::ifstream file(WideToUtf8(path));
     if (!file)
     {
-        SetLastError("Failed to open JSON file: " + WideToUtf8(path));
         OutputDebugStringW((L"[ERROR] Failed to open JSON: " + path + L"\n").c_str());
-        return DbError::IO_ERROR;
+        return;
     }
 
     json data;
-    try
-    {
-        file >> data;
-    }
+    try { file >> data; }
     catch (const std::exception& e)
     {
-        SetLastError(std::string("JSON parse failed: ") + e.what());
         OutputDebugStringA(("[ERROR] JSON parse failed: " + std::string(e.what()) + "\n").c_str());
-        return DbError::IO_ERROR;
+        return;
     }
 
-    // Use transaction for bulk insert performance
-    BeginTransaction();
-
     int inserted = 0;
-    int failed = 0;
 
     for (const auto& item : data)
     {
@@ -642,48 +502,37 @@ DbError Database::SeedFromJson(const std::wstring& path)
             {
                 std::wstring token = Utf8ToWide(aliasJson.get<std::string>().c_str());
 
-                // Replace spaces with underscores
                 for (auto& c : token)
                     if (c == L' ') c = L'_';
 
-                DbError err = AddExpansion(token, emoji, L"emoji", tagList);
-                if (err != DbError::OK)
-                {
-                    failed++;
+                // Use updated DB_AddExpansion that inserts tags atomically
+                if (!DB_AddExpansion(token, emoji, L"emoji", tagList))
                     continue;
-                }
 
-                int id = (int)sqlite3_last_insert_rowid(db);
+                int id = (int)sqlite3_last_insert_rowid(g_db);
 
                 // Insert category into emoji_meta
                 if (!category.empty())
                 {
-                    Statement stmt = Prepare(
-                        "INSERT INTO emoji_meta (expansion_id, category) VALUES (?, ?);");
-                    if (stmt.IsValid())
-                    {
-                        Utf8Param catUtf8(category);
-                        sqlite3_bind_int(stmt.stmt, 1, id);
-                        sqlite3_bind_text(stmt.stmt, 2, catUtf8.c_str(), catUtf8.length(), SQLITE_TRANSIENT);
-                        sqlite3_step(stmt.stmt);
-                    }
+                    sqlite3_stmt* stmt = nullptr;
+                    sqlite3_prepare_v2(g_db,
+                        "INSERT INTO emoji_meta (expansion_id, category) VALUES (?, ?);",
+                        -1, &stmt, nullptr);
+
+                    std::string cat = WideToUtf8(category);
+                    sqlite3_bind_int(stmt, 1, id);
+                    sqlite3_bind_text(stmt, 2, cat.c_str(), -1, SQLITE_TRANSIENT);
+                    sqlite3_step(stmt);
+                    sqlite3_finalize(stmt);
                 }
 
                 inserted++;
             }
         }
-        catch (const std::exception& e)
-        {
-            failed++;
-            continue;
-        }
+        catch (...) { continue; }
     }
 
-    CommitTransaction();
-
-    wchar_t dbg[256];
-    swprintf_s(dbg, 256, L"[SEED DONE] Inserted: %d, Failed: %d\n", inserted, failed);
+    wchar_t dbg[128];
+    swprintf(dbg, 128, L"[SEED DONE] Inserted: %d\n", inserted);
     OutputDebugStringW(dbg);
-
-    return DbError::OK;
 }

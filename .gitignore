@@ -1,33 +1,138 @@
-# Build outputs
+# ============================================================================
+# BUILD OUTPUTS & TEMPORARY
+# ============================================================================
+
+# Visual Studio build directories
 Debug/
 Release/
 x64/
 x86/
 build/
-db/
-EX-Expander/
-installer/
+out/
+bin/
+
+# Object files and compiled outputs
 *.obj
 *.exe
 *.dll
 *.lib
 *.pdb
+*.ilk
 
-# Visual Studio
+# ============================================================================
+# VISUAL STUDIO
+# ============================================================================
+
 .vs/
 *.vcxproj.user
+*.vcxproj.filters.user
 *.sln.DotSettings
-
-# Dependencies (if you commit them)
-# OR add to .gitignore if you use vcpkg/conan:
-vcpkg_installed/
-packages/
-
-# IDE
+*.suo
+*.VC.db
+*.VC.opendb
+ipch/
 .vscode/
-*.sublime-project
 
-# Misc
-*.log
+# Resource editor generated files (IMPORTANT!)
+*.aps
+
+# Visual Studio Code
+.vscode/
+launch.json
+settings.json
+tasks.json
+
+# ============================================================================
+# NUGET & PACKAGE MANAGERS
+# ============================================================================
+
+packages/
+*.nupkg
+*.snupkg
+vcpkg_installed/
+conan/
+conan.lock
+
+# ============================================================================
+# DATABASE & DATA
+# ============================================================================
+
+# Generated database files (keep structure, ignore instances)
+*.db
+*.db-shm
+*.db-wal
+
+# Temporary data files
+*.tmp
+*.temp
+
+# ============================================================================
+# IDE & EDITOR
+# ============================================================================
+
+*.sublime-project
+*.sublime-workspace
+.idea/
+*.swp
+*.swo
+
+# ============================================================================
+# OS FILES
+# ============================================================================
+
 .DS_Store
 Thumbs.db
+Desktop.ini
+*.lnk                    # Windows shortcuts
+ehthumbs.db
+
+# ============================================================================
+# LOGS & DEBUGGING
+# ============================================================================
+
+*.log
+*.log.*
+debug.log
+npm-debug.log*
+
+# ============================================================================
+# DEPENDENCIES (if using vcpkg/conan, but NOT for bundled sqlite3)
+# ============================================================================
+
+# Uncomment if using external package managers:
+# vcpkg_installed/
+# conan/
+
+# ============================================================================
+# SYSTEM & TEMP
+# ============================================================================
+
+*.bak
+*.swp
+*~
+.tmp/
+tmp/
+
+# ============================================================================
+# USER-SPECIFIC SETTINGS
+# ============================================================================
+
+# Local development settings (each dev has their own)
+src/config/local.ini
+src/config/dev.config
+personal_settings.json
+
+# ============================================================================
+# LARGE DATA FILES (optional - version control 1 primary, ignore generated)
+# ============================================================================
+
+# Uncomment if emoji.json is generated/downloaded:
+# assets/data/emoji.json
+
+# Keep this if it's part of source:
+# (leave commented out and commit it)
+/emoji.json
+/index.html
+/src - Shortcut.lnk
+/styles.css
+/app.js

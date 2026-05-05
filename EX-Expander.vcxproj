@@ -112,12 +112,12 @@
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)src\helper;$(SolutionDir)src\ui\popup;$(SolutionDir)src\ui\management_ui;$(SolutionDir)assests\webView;$(SolutionDir)ui\suggestionpopup;$(SolutionDir)src\ui\webui;$(SolutionDir)db;$(SolutionDir);$(SolutionDir)src\app;$(SolutionDir)src\ui;$(SolutionDir)src\globals;$(SolutionDir)assets\fonts;$(SolutionDir)assets\icons;$(SolutionDir)external\sqlite;$(SolutionDir)src\data;$(SolutionDir)include;$(SolutionDir)src\core;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)assets\data;$(SolutionDir)src\helper;$(SolutionDir)src\ui\popup;$(SolutionDir)src\ui\management_ui;$(SolutionDir)src\data;$(SolutionDir)src\ui;$(SolutionDir)src\globals;$(SolutionDir)src\core;$(SolutionDir)src\app;$(SolutionDir)external\sqlite;$(SolutionDir)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)external\sqlite</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)external\sqlite;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>$(SolutionDir)db;$(SolutionDir)include;$(SolutionDir)assets\webView;$(SolutionDir)assets\icons</AdditionalIncludeDirectories>
@@ -132,17 +132,18 @@
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)src\helper;$(SolutionDir)src\ui\popup;$(SolutionDir)src\ui\management_ui;$(SolutionDir)src\app;$(SolutionDir)src\ui;$(SolutionDir)src\globals;$(SolutionDir)assets\fonts;$(SolutionDir)assets\icons;$(SolutionDir)db;$(SolutionDir)external\sqlite;$(SolutionDir)src\data;$(SolutionDir)include;$(SolutionDir)src\core;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)assets\data;$(SolutionDir)src\helper;$(SolutionDir)src\ui\popup;$(SolutionDir)src\ui\management_ui;$(SolutionDir)src\data;$(SolutionDir)src\ui;$(SolutionDir)src\globals;$(SolutionDir)src\core;$(SolutionDir)src\app;$(SolutionDir)external\sqlite;$(SolutionDir)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)external\sqlite</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)external\sqlite;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>$(SolutionDir)include;$(SolutionDir)assets\icons</AdditionalIncludeDirectories>
     </ResourceCompile>
   </ItemDefinitionGroup>
+  <!-- HEADERS -->
   <ItemGroup>
     <ClInclude Include="external\sqlite\sqlite3.h" />
     <ClInclude Include="include\Database.h" />
@@ -157,7 +158,6 @@
     <ClInclude Include="include\KeyboardHook.h" />
     <ClInclude Include="include\Resource.h" />
     <ClInclude Include="include\targetver.h" />
-    <ClInclude Include="InstalledApps.h" />
     <ClInclude Include="src\helper\InstalledApps.h" />
     <ClInclude Include="src\helper\Settings.h" />
     <ClInclude Include="src\helper\StringUtils.h" />
@@ -177,26 +177,36 @@
     <ClInclude Include="src\ui\popup\PopupUtils.h" />
     <ClInclude Include="src\ui\popup\PopupWindow.h" />
   </ItemGroup>
+  <!-- RESOURCES -->
   <ItemGroup>
     <ResourceCompile Include="EX-Expander.rc" />
   </ItemGroup>
+  <!-- IMAGES -->
   <ItemGroup>
     <Image Include="EX-Expander.ico" />
     <Image Include="small.ico" />
   </ItemGroup>
+  <!-- SOURCE FILES - CRITICAL FIX -->
   <ItemGroup>
+    <!-- Core Libraries -->
     <ClCompile Include="external\sqlite\sqlite3.c" />
+    <!-- Application Entry -->
     <ClCompile Include="src\app\App.cpp" />
+    <!-- Core Business Logic -->
     <ClCompile Include="src\core\EmojiMatcher.cpp" />
     <ClCompile Include="src\core\EmojiReplacer.cpp" />
     <ClCompile Include="src\core\InputBuffer.cpp" />
     <ClCompile Include="src\core\KeyboardHook.cpp" />
+    <!-- Data Layer (DATABASE) -->
     <ClCompile Include="src\data\Database.cpp" />
     <ClCompile Include="src\data\Helper.cpp" />
+    <!-- Global State -->
     <ClCompile Include="src\globals\Globals.cpp" />
+    <!-- Helpers/Utilities -->
     <ClCompile Include="src\helper\InstalledApps.cpp" />
     <ClCompile Include="src\helper\Settings.cpp" />
     <ClCompile Include="src\helper\StringUtils.cpp" />
+    <!-- UI - Management UI (WebView) -->
     <ClCompile Include="src\ui\management_ui\InstalledAppsBridge.cpp" />
     <ClCompile Include="src\ui\management_ui\WebJsonBuilder.cpp" />
     <ClCompile Include="src\ui\management_ui\WebMessageHandler.cpp" />
@@ -204,6 +214,7 @@
     <ClCompile Include="src\ui\management_ui\WebSettings.cpp" />
     <ClCompile Include="src\ui\management_ui\webUI.cpp" />
     <ClCompile Include="src\ui\management_ui\WebViewManager.cpp" />
+    <!-- UI - Popup (Suggestions) -->
     <ClCompile Include="src\ui\popup\popup.cpp" />
     <ClCompile Include="src\ui\popup\PopupAnimation.cpp" />
     <ClCompile Include="src\ui\popup\PopupInput.cpp" />
@@ -213,15 +224,16 @@
     <ClCompile Include="src\ui\popup\PopupUtils.cpp" />
     <ClCompile Include="src\ui\popup\PopupWindow.cpp" />
   </ItemGroup>
+  <!-- DATA FILES -->
   <ItemGroup>
-    <CopyFileToFolders Include="db\emoji.json">
+    <CopyFileToFolders Include="assets\data\emoji.json">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
       <FileType>Document</FileType>
     </CopyFileToFolders>
-    <None Include="app.js" />
-    <None Include="index.html" />
+    <None Include="assets\web\app.js" />
+    <None Include="assets\web\index.html" />
+    <None Include="assets\web\styles.css" />
     <None Include="packages.config" />
-    <None Include="styles.css" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
@@ -231,7 +243,7 @@
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
-      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkId=2126316</ErrorText>
     </PropertyGroup>
     <Error Condition="!Exists('packages\Microsoft.Web.WebView2.1.0.3965-prerelease\build\native\Microsoft.Web.WebView2.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Web.WebView2.1.0.3965-prerelease\build\native\Microsoft.Web.WebView2.targets'))" />
     <Error Condition="!Exists('packages\Microsoft.Windows.CppWinRT.2.0.220531.1\build\native\Microsoft.Windows.CppWinRT.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Windows.CppWinRT.2.0.220531.1\build\native\Microsoft.Windows.CppWinRT.props'))" />

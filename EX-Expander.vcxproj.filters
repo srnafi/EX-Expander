@@ -81,9 +81,6 @@
     <ClInclude Include="include\Helper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="InstalledApps.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\ui\popup\popup.h">
       <Filter>Source Files\ui\popup</Filter>
     </ClInclude>
@@ -237,19 +234,11 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <None Include="app.js">
-      <Filter>Source Files\web_files</Filter>
-    </None>
-    <None Include="index.html">
-      <Filter>Source Files\web_files</Filter>
-    </None>
-    <None Include="styles.css">
-      <Filter>Source Files\web_files</Filter>
-    </None>
+    <None Include="assets\web\app.js" />
+    <None Include="assets\web\index.html" />
+    <None Include="assets\web\styles.css" />
   </ItemGroup>
   <ItemGroup>
-    <CopyFileToFolders Include="db\emoji.json">
-      <Filter>Source Files\db</Filter>
-    </CopyFileToFolders>
+    <CopyFileToFolders Include="assets\data\emoji.json" />
   </ItemGroup>
 </Project>
