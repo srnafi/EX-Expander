@@ -1,30 +1,40 @@
 // ---------------------------------------------------------------------------
-// SuggestionPopup.cpp
+// popup.cpp
 //
-// Visual shape (⊢):  The "spine" (narrow column) stays fixed for all items.
-// Only the selected (center) row protrudes rightward — width snaps instantly.
-// Navigation animates a continuous scroll offset spring so items glide past
-// the center slot like a smooth spinning wheel.
+// Public entry point for the suggestion popup system.
+//
+// Visual shape:
 //
 //   ┌───────┐
 //   │ item  │  ← dims as it scrolls away from center
 //   ├───────┼──────────────────────┐
-//   │  SELECTED ITEM (expanded)    │  ← full size at scrollOffset == 0
+//   │  SELECTED ITEM (expanded)    │  ← full width, center slot
 //   ├───────┼──────────────────────┘
 //   │ item  │
 //   └───────┘
 //
+// The spine (narrow left column) stays fixed for all items.
+// Only the selected center row protrudes rightward.
+// Navigation animates a spring-based scroll offset so items glide
+// past the center slot like a spinning wheel.
+//
+// Sub-modules:
+//   PopupState      – all mutable state (items, selection, springs)
+//   PopupAnimation  – spring math and timer
+//   PopupRenderer   – Direct2D draw calls
+//   PopupWindow     – WNDPROC and message handling
 // ---------------------------------------------------------------------------
-#include <windows.h>
-#include "popup.h"
-#include <PopupState.h>
-#include <PopupAnimation.h>
-#include <PopupRenderer.h>
-#include "PopupWindow.h"
 
-// ---------------------------------------------------------------------------
+#include "popup.h"
+#include "PopupState.h"
+#include "PopupAnimation.h"
+#include "PopupRenderer.h"
+#include "PopupWindow.h"
+#include "AppLog.h"
+
+// ===========================================================================
 // PUBLIC API
-// ---------------------------------------------------------------------------
+// ===========================================================================
 
 void PopupInit(HINSTANCE hInst)
 {
@@ -33,39 +43,66 @@ void PopupInit(HINSTANCE hInst)
     wc.hInstance = hInst;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.lpszClassName = L"SuggestionPopupLayered";
-    RegisterClass(&wc);
 
-    // Window is always MaxWidth wide — only the rendered content varies.
-    // This avoids any window-resize flicker during animation.
+    if (!RegisterClass(&wc))
+    {
+        // ERROR_CLASS_ALREADY_EXISTS is acceptable (e.g. called twice)
+        DWORD err = GetLastError();
+        if (err != ERROR_CLASS_ALREADY_EXISTS)
+        {
+            AppLog::Error(L"PopupInit: RegisterClass failed, error "
+                + std::to_wstring(err));
+            return;
+        }
+    }
+
+    // Window is always MaxWidth wide so the window never needs resizing
+    // during animation – only the rendered content changes each frame.
     State::hwnd = CreateWindowEx(
         WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED | WS_EX_NOACTIVATE,
-        wc.lpszClassName, L"",
+        wc.lpszClassName,
+        L"",
         WS_POPUP,
         0, 0,
-        (int)UI::MaxWidth, 200,
+        static_cast<int>(UI::MaxWidth), 200,
         nullptr, nullptr, hInst, nullptr);
+
+    if (!State::hwnd)
+    {
+        AppLog::Error(L"PopupInit: CreateWindowEx failed, error "
+            + std::to_wstring(GetLastError()));
+        return;
+    }
 
     State::scrollOffset.snap(0.f);
     State::opacity.snap(0.f);
     State::currentWidth = UI::SpineWidth;
 
     InitD2D();
+
+    AppLog::Info(L"Popup initialised");
+}
+
+bool IsPopupVisible()
+{
+    return State::hwnd && IsWindowVisible(State::hwnd);
 }
 
 bool IsPopupNavigating()
 {
-    return true;
+    // Popup must be visible and the user must have moved off the first item
+    // (selectedIndex > 0 means UP/DOWN was pressed at least once)
+    return IsPopupVisible() && State::centerIndex > 0;
 }
 
-// Toggle smooth scroll animation on/off.
-// When off: navigation is instant (zero CPU between keypresses). 
-// When on:  ~60fps timer runs only while the spring is settling (~150ms/keypress).  ;la
 void PopupSetAnimation(bool enabled)
-{ 
+{
     Anim::animEnabled = enabled;
+
     if (!enabled)
     {
-        // Settle any in-progress animation immediately
+        // Settle any in-progress spring immediately so the next render
+        // does not try to resume from a partial animation state
         State::scrollOffset.snap(0.f);
         State::opacity.snap(State::opacity.target);
         StopTimer();

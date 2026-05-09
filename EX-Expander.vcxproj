@@ -145,27 +145,25 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="external\sqlite\sqlite3.h" />
-    <ClInclude Include="include\Database.h" />
-    <ClInclude Include="include\EmojiMatcher.h" />
-    <ClInclude Include="include\EmojiReplacer.h" />
     <ClInclude Include="include\EX-Expander.h" />
     <ClInclude Include="include\framework.h" />
     <ClInclude Include="include\ft2build.h" />
-    <ClInclude Include="include\Globals.h" />
-    <ClInclude Include="include\Helper.h" />
-    <ClInclude Include="include\InputBuffer.h" />
-    <ClInclude Include="include\KeyboardHook.h" />
     <ClInclude Include="include\Resource.h" />
     <ClInclude Include="include\targetver.h" />
+    <ClInclude Include="src\core\InputBuffer.h" />
+    <ClInclude Include="src\core\KeyboardHook.h" />
+    <ClInclude Include="src\core\TextInsertion.h" />
+    <ClInclude Include="src\data\Database.h" />
+    <ClInclude Include="src\globals\Globals.h" />
+    <ClInclude Include="src\helper\AppLog.h" />
+    <ClInclude Include="src\helper\Helper.h" />
     <ClInclude Include="src\helper\InstalledApps.h" />
-    <ClInclude Include="src\helper\Settings.h" />
     <ClInclude Include="src\helper\StringUtils.h" />
-    <ClInclude Include="src\ui\management_ui\InstalledAppsBridge.h" />
-    <ClInclude Include="src\ui\management_ui\WebJsonBuilder.h" />
     <ClInclude Include="src\ui\management_ui\WebMessageHandler.h" />
     <ClInclude Include="src\ui\management_ui\WebResources.h" />
     <ClInclude Include="src\ui\management_ui\WebSettings.h" />
     <ClInclude Include="src\ui\management_ui\webUI.h" />
+    <ClInclude Include="src\ui\management_ui\WebViewBridge.h" />
     <ClInclude Include="src\ui\management_ui\WebViewManager.h" />
     <ClInclude Include="src\ui\popup\popup.h" />
     <ClInclude Include="src\ui\popup\PopupAnimation.h" />
@@ -187,22 +185,20 @@
     <!-- Core Libraries -->
     <ClCompile Include="external\sqlite\sqlite3.c" />
     <ClCompile Include="src\app\App.cpp" />
-    <ClCompile Include="src\core\EmojiMatcher.cpp" />
-    <ClCompile Include="src\core\EmojiReplacer.cpp" />
+    <ClCompile Include="src\core\TextInsertion.cpp" />
     <ClCompile Include="src\core\InputBuffer.cpp" />
     <ClCompile Include="src\core\KeyboardHook.cpp" />
     <ClCompile Include="src\data\Database.cpp" />
-    <ClCompile Include="src\data\Helper.cpp" />
     <ClCompile Include="src\globals\Globals.cpp" />
+    <ClCompile Include="src\helper\AppLog.cpp" />
+    <ClCompile Include="src\helper\Helper.cpp" />
     <ClCompile Include="src\helper\InstalledApps.cpp" />
-    <ClCompile Include="src\helper\Settings.cpp" />
     <ClCompile Include="src\helper\StringUtils.cpp" />
-    <ClCompile Include="src\ui\management_ui\InstalledAppsBridge.cpp" />
-    <ClCompile Include="src\ui\management_ui\WebJsonBuilder.cpp" />
     <ClCompile Include="src\ui\management_ui\WebMessageHandler.cpp" />
     <ClCompile Include="src\ui\management_ui\WebResources.cpp" />
     <ClCompile Include="src\ui\management_ui\WebSettings.cpp" />
     <ClCompile Include="src\ui\management_ui\webUI.cpp" />
+    <ClCompile Include="src\ui\management_ui\WebViewBridge.cpp" />
     <ClCompile Include="src\ui\management_ui\WebViewManager.cpp" />
     <ClCompile Include="src\ui\popup\popup.cpp" />
     <ClCompile Include="src\ui\popup\PopupAnimation.cpp" />
@@ -223,7 +219,6 @@
     <None Include="assets\web\styles.css" />
     <None Include="packages.config" />
   </ItemGroup>
-
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="packages\Microsoft.Web.WebView2.1.0.3965-prerelease\build\native\Microsoft.Web.WebView2.targets" Condition="Exists('packages\Microsoft.Web.WebView2.1.0.3965-prerelease\build\native\Microsoft.Web.WebView2.targets')" />

@@ -1,310 +1,155 @@
-#include <windows.h>
 #include "PopupRenderer.h"
-#include "popup.h"
-#include "Globals.h"
-#include "EmojiMatcher.h"
-#include "EmojiReplacer.h"
-#include "InputBuffer.h"
 #include "PopupState.h"
+#include "PopupUtils.h"
+#include "Globals.h"
+#include "AppLog.h"
 
+#include <windows.h>
 #include <d2d1.h>
 #include <dwrite.h>
 #include <wrl/client.h>
+
 #include <vector>
 #include <string>
 #include <cmath>
 #include <algorithm>
-#include <PopupUtils.h>
-#pragma comment(lib, "dwrite")
+
+#pragma comment(lib, "dwrite.lib")
 
 using Microsoft::WRL::ComPtr;
-ComPtr<ID2D1PathGeometry> BuildTPath(
-    float narrowW, float expandW,
-    float totalH,
-    float extTop, float extBot,
-    float r);
-// ---------------------------------------------------------------------------
+
+// ===========================================================================
+// CONSTANTS
+// ===========================================================================
+
+namespace RenderConstants
+{
+    constexpr float BgAlpha = 0.95f;
+    constexpr float BorderAlpha = 0.30f;
+    constexpr float CardAlpha = 0.18f;
+    constexpr float CardPadding = 4.f;
+    constexpr float CenterDistThresh = 0.5f;
+    constexpr float TextAlphaFade = 0.72f;
+    constexpr float GlowLayerCount = 3.f;
+    constexpr float GlowAlphaBase = 0.12f;
+    constexpr float GlowExpand = 6.f;
+}
+
+// ===========================================================================
+// INTERNAL HELPERS
+// ===========================================================================
+
+namespace
+{
+    // Circular index wrapping: converts (centerIndex + offset) to a valid index
+    int WrapIndex(int centerIdx, int offset, int total)
+    {
+        if (total <= 0) return 0;
+        return ((centerIdx + offset) % total + total) % total;
+    }
+
+    // HRESULT check with logging
+    bool CheckHR(HRESULT hr, const std::wstring& context)
+    {
+        if (FAILED(hr))
+        {
+            AppLog::Warn(L"PopupRenderer: " + context + L" failed");
+            return false;
+        }
+        return true;
+    }
+}
+
+// ===========================================================================
 // D2D INIT
-// ---------------------------------------------------------------------------
+// ===========================================================================
 
 bool InitD2D()
 {
     using namespace Gfx;
 
-    if (FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,
-        factory.GetAddressOf())))
+    if (!CheckHR(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,
+        factory.GetAddressOf()),
+        L"D2D1CreateFactory"))
         return false;
 
-    D2D1_RENDER_TARGET_PROPERTIES props =
-        D2D1::RenderTargetProperties(
-            D2D1_RENDER_TARGET_TYPE_DEFAULT,
-            D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,
-                D2D1_ALPHA_MODE_PREMULTIPLIED));
+    D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
+        D2D1_RENDER_TARGET_TYPE_DEFAULT,
+        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,
+            D2D1_ALPHA_MODE_PREMULTIPLIED));
 
-    if (FAILED(factory->CreateDCRenderTarget(&props, dcRT.GetAddressOf())))
+    if (!CheckHR(factory->CreateDCRenderTarget(&props, dcRT.GetAddressOf()),
+        L"CreateDCRenderTarget"))
         return false;
 
-    if (FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,
+    if (!CheckHR(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,
         __uuidof(IDWriteFactory),
-        reinterpret_cast<IUnknown**>(writeFactory.GetAddressOf()))))
+        reinterpret_cast<IUnknown**>(writeFactory.GetAddressOf())),
+        L"DWriteCreateFactory"))
         return false;
 
-    writeFactory->CreateTextFormat(
+    // Create text formats
+    if (!CheckHR(writeFactory->CreateTextFormat(
         L"Segoe UI Emoji", nullptr,
-        DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL,
-        UI::FontCenter, L"", fmtCenter.GetAddressOf());
+        DWRITE_FONT_WEIGHT_NORMAL,
+        DWRITE_FONT_STYLE_NORMAL,
+        DWRITE_FONT_STRETCH_NORMAL,
+        UI::FontCenter, L"",
+        fmtCenter.GetAddressOf()),
+        L"CreateTextFormat(center)"))
+        return false;
 
-    writeFactory->CreateTextFormat(
+    if (!CheckHR(writeFactory->CreateTextFormat(
         L"Segoe UI Emoji", nullptr,
-        DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL,
-        UI::FontSide, L"", fmtSide.GetAddressOf());
+        DWRITE_FONT_WEIGHT_NORMAL,
+        DWRITE_FONT_STYLE_NORMAL,
+        DWRITE_FONT_STRETCH_NORMAL,
+        UI::FontSide, L"",
+        fmtSide.GetAddressOf()),
+        L"CreateTextFormat(side)"))
+        return false;
 
+    // Configure alignment
     if (fmtCenter)
     {
         fmtCenter->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
         fmtCenter->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
     }
+
     if (fmtSide)
     {
         fmtSide->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
         fmtSide->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
     }
 
+    AppLog::Info(L"Direct2D and DirectWrite initialised");
     return true;
 }
 
-// ---------------------------------------------------------------------------
-// RENDER  (one frame)
-//
-// scrollOffset.value is in slot units.  A value of +0.3 means the list has
-// scrolled 30% of one row downward — i.e. each item is rendered 0.3*ItemHeight
-// pixels lower than its resting position, giving the wheel-spin illusion.
-//
-// For each visible slot i, the "fractional distance from center" is:
-//   frac = i - half + scrollOffset.value     (can be non-integer mid-animation)
-//
-// Font size and opacity are interpolated based on |frac| so items visually
-// grow/shrink as they pass through the focal point.
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// GLOW EFFECT
+// ===========================================================================
 
-void RenderLayered()
-{
-    using namespace State;
-    using namespace Gfx;
-
-    int total = (int)g_FilteredExpansions.size();
-    if (total == 0) return;
-
-    ClampIndex(centerIndex, total);
-
-    const int   W = (int)UI::MaxWidth;
-    int         visible = min(total, g_MaxPopupItems);
-    const int   H = visible * UI::ItemHeight + UI::Padding * 2;
-
-    float scroll = State::scrollOffset.value;   // fractional slot offset
-    float alpha = min(1.f, max(0.f, opacity.value));
-    float bumpW = State::currentWidth;          // already snapped, no animation
-
-    int half = visible / 2;
-
-    // Y extents of the center slot (fixed, never moves)
-    float extTop = (float)(UI::Padding + half * UI::ItemHeight);
-    float extBot = extTop + (float)UI::ItemHeight;
-
-    // Accent from the center index
-    D2D1::ColorF accent = GetAccent(g_FilteredExpansions[centerIndex].value);
-
-    // ---- Off-screen DIB ----
-    HDC screenDC = GetDC(nullptr);
-    HDC memDC = CreateCompatibleDC(screenDC);
-
-    BITMAPINFO bmi{};
-    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = W;
-    bmi.bmiHeader.biHeight = -H;
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-
-    void* bits = nullptr;
-    HBITMAP bmp = CreateDIBSection(screenDC, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
-    if (!bmp) { DeleteDC(memDC); ReleaseDC(nullptr, screenDC); return; }
-    SelectObject(memDC, bmp);
-
-    RECT rcBind = { 0, 0, W, H };
-    dcRT->BindDC(memDC, &rcBind);
-
-    // ---- Brushes ----
-    ComPtr<ID2D1SolidColorBrush> bgBrush, borderBrush, cardBrush, brightBrush;
-    dcRT->CreateSolidColorBrush({ 0.10f, 0.10f, 0.13f, 0.95f * alpha }, bgBrush.GetAddressOf());
-    dcRT->CreateSolidColorBrush({ accent.r, accent.g, accent.b, 0.30f * alpha }, borderBrush.GetAddressOf());
-    dcRT->CreateSolidColorBrush({ accent.r, accent.g, accent.b, 0.18f * alpha }, cardBrush.GetAddressOf());
-    dcRT->CreateSolidColorBrush({ 1.f, 1.f, 1.f, alpha }, brightBrush.GetAddressOf());
-
-    dcRT->BeginDraw();
-    dcRT->Clear({ 0, 0 });
-
-    // ---- T-shape background (static, based on center slot) ----
-    auto tPath = BuildTPath(UI::SpineWidth, bumpW, (float)H,
-        extTop, extBot, UI::OuterRadius);
-    if (tPath)
-    {
-        dcRT->FillGeometry(tPath.Get(), bgBrush.Get());
-        dcRT->DrawGeometry(tPath.Get(), borderBrush.Get(), 1.0f);
-    }
-
-    // ---- Draw selected card highlight behind items ----
-    {
-        D2D1_ROUNDED_RECT card = {
-            D2D1::RectF(UI::HorzPad * 0.5f,
-                        extTop + 4.f,
-                        bumpW - UI::HorzPad * 0.5f,
-                        extBot - 4.f),
-            UI::CardRadius, UI::CardRadius
-        };
-        DrawGlow(dcRT.Get(), card, accent, alpha);
-        dcRT->FillRoundedRectangle(card, cardBrush.Get());
-        dcRT->DrawRoundedRectangle(card, borderBrush.Get(), 1.0f);
-    }
-
-    // ---- Draw each visible row — scroll offset shifts Y continuously ----
-    //
-    // scroll is in slot units. scroll = -1 means every item is shifted UP by
-    // one row height (the new selection has just moved into center from below).
-    // We draw [visible+2] slots — one extra above and below — so items sliding
-    // in from outside the clip region are already rendered when they enter.
-    //
-    // slot index s ranges from -1 to visible (inclusive).
-    // s=0..visible-1 are the normal slots; s=-1 and s=visible are the overflow
-    // slots that are only visible mid-animation.
-    dcRT->PushAxisAlignedClip(
-        D2D1::RectF(0, (float)UI::Padding, (float)W, (float)(H - UI::Padding)),
-        D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-
-    for (int s = -1; s <= visible; ++s)
-    {
-        // Resting Y for this slot (no scroll)
-        float slotY = (float)(UI::Padding + s * UI::ItemHeight);
-
-        // Apply scroll: positive scroll shifts items DOWN (press UP = items come down)
-        //               negative scroll shifts items UP  (press DOWN = items go up)
-        float rowTop = slotY + scroll * (float)UI::ItemHeight;
-        float rowMid = rowTop + (float)UI::ItemHeight * 0.5f;
-
-        // Skip if entirely outside clip region (no point drawing)
-        if (rowTop + (float)UI::ItemHeight < (float)UI::Padding) continue;
-        if (rowTop > (float)(H - UI::Padding))                   continue;
-
-        // Distance from center slot in slots (fractional during animation)
-        float distFromCenter = (float)(s - half) + scroll;
-        float absDist = fabsf(distFromCenter);
-
-        // Which data item lives in this slot?
-        // Slot relative to center: (s - half). Wrap into [0, total).
-        int rel = s - half;
-        int idx = ((centerIndex + rel) % total + total) % total;
-
-        // Visual interpolation — smoothstep on distance clamped to [0,1]
-        float t = min(1.f, absDist);
-        float smooth = t * t * (3.f - 2.f * t);
-
-        float fontSize = UI::FontCenter + (UI::FontSide - UI::FontCenter) * smooth;
-        float textAlpha = (1.0f - smooth * 0.72f) * alpha;
-
-        if (textAlpha < 0.01f) continue;
-
-        const auto& text = g_FilteredExpansions[idx].value;
-        bool isCenter = (absDist < 0.5f);
-
-        if (isCenter)
-        {
-            // Center item: full-width protrusion zone
-            ComPtr<ID2D1SolidColorBrush> textBrush;
-            dcRT->CreateSolidColorBrush({ 1.f, 1.f, 1.f, textAlpha }, textBrush.GetAddressOf());
-
-            float ty = rowMid - fontSize * 0.5f;
-            dcRT->DrawTextW(text.c_str(), (UINT32)text.size(),
-                fmtCenter.Get(),
-                D2D1::RectF(UI::HorzPad, ty, bumpW - UI::HorzPad, ty + fontSize),
-                textBrush.Get(),
-                D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
-        }
-        else
-        {
-            // Non-center: clipped to spine, ellipsis-trimmed
-            ComPtr<ID2D1SolidColorBrush> dimBrush;
-            dcRT->CreateSolidColorBrush({ 1.f, 1.f, 1.f, textAlpha }, dimBrush.GetAddressOf());
-
-            dcRT->PushAxisAlignedClip(
-                D2D1::RectF(0, rowTop, UI::SpineWidth, rowTop + (float)UI::ItemHeight),
-                D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-
-            float textW = UI::SpineWidth - UI::HorzPad * 2.f;
-            float ty = rowMid - fontSize * 0.5f;
-
-            ComPtr<IDWriteTextLayout> layout;
-            if (writeFactory && fmtSide &&
-                SUCCEEDED(writeFactory->CreateTextLayout(
-                    text.c_str(), (UINT32)text.size(),
-                    fmtSide.Get(), textW, fontSize + 4.f, layout.GetAddressOf())))
-            {
-                ComPtr<IDWriteInlineObject> ellipsis;
-                writeFactory->CreateEllipsisTrimmingSign(fmtSide.Get(), ellipsis.GetAddressOf());
-                DWRITE_TRIMMING trim{ DWRITE_TRIMMING_GRANULARITY_CHARACTER, 0, 0 };
-                layout->SetTrimming(&trim, ellipsis.Get());
-
-                dcRT->DrawTextLayout(
-                    D2D1::Point2F(UI::HorzPad, ty),
-                    layout.Get(), dimBrush.Get(),
-                    D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
-            }
-
-            dcRT->PopAxisAlignedClip();
-        }
-    }
-
-    dcRT->PopAxisAlignedClip(); // item area clip
-
-    dcRT->EndDraw();
-
-    // ---- Blit to screen ----
-    RECT wr{};
-    GetWindowRect(hwnd, &wr);
-
-    POINT dst = { wr.left, wr.top };
-    POINT src = { 0, 0 };
-    SIZE  sz = { W, H };
-
-    BLENDFUNCTION bf{};
-    bf.BlendOp = AC_SRC_OVER;
-    bf.SourceConstantAlpha = 255;
-    bf.AlphaFormat = AC_SRC_ALPHA;
-
-    UpdateLayeredWindow(hwnd, screenDC, &dst, &sz, memDC, &src, 0, &bf, ULW_ALPHA);
-
-    DeleteObject(bmp);
-    DeleteDC(memDC);
-    ReleaseDC(nullptr, screenDC);
-}
-
-// ---------------------------------------------------------------------------
-// GLOW  (drawn behind selected card)
-// ---------------------------------------------------------------------------
 void DrawGlow(ID2D1DCRenderTarget* rt,
     const D2D1_ROUNDED_RECT& base,
     const D2D1::ColorF& c,
     float masterAlpha)
 {
+    if (!rt) return;
+
     for (int i = 3; i >= 1; --i)
     {
-        float t = (float)i / 3.f;
-        float expand = 6.f * t;
-        float alpha = t * t * 0.12f * masterAlpha;
+        float t = static_cast<float>(i) / RenderConstants::GlowLayerCount;
+        float expand = RenderConstants::GlowExpand * t;
+        float alpha = t * t * RenderConstants::GlowAlphaBase * masterAlpha;
 
-        ComPtr<ID2D1SolidColorBrush> b;
-        if (FAILED(rt->CreateSolidColorBrush({ c.r, c.g, c.b, alpha }, b.GetAddressOf())))
+        ComPtr<ID2D1SolidColorBrush> glowBrush;
+        if (FAILED(rt->CreateSolidColorBrush(
+            { c.r, c.g, c.b, alpha },
+            glowBrush.GetAddressOf())))
             continue;
 
-        D2D1_ROUNDED_RECT rr = {
+        D2D1_ROUNDED_RECT rr{
             D2D1::RectF(base.rect.left - expand,
                         base.rect.top - expand,
                         base.rect.right + expand,
@@ -312,41 +157,44 @@ void DrawGlow(ID2D1DCRenderTarget* rt,
             base.radiusX + expand * 0.3f,
             base.radiusY + expand * 0.3f
         };
-        rt->FillRoundedRectangle(rr, b.Get());
+
+        rt->FillRoundedRectangle(rr, glowBrush.Get());
     }
 }
 
-// ---------------------------------------------------------------------------
-// T-SHAPE PATH GEOMETRY  (⊢ shape)
+// ===========================================================================
+// T-SHAPE GEOMETRY (⊢ shape)
 //
-//  narrowW  = spine width  (SpineWidth, fixed)
-//  expandW  = total window width  (spine + protrusion)
-//  totalH   = full window height
-//  extTop   = Y where selected row begins
-//  extBot   = Y where selected row ends
-//  r        = outer corner radius
+// Parameters:
+//   narrowW  – spine width (fixed)
+//   expandW  – total width including protrusion
+//   totalH   – full window height
+//   extTop   – Y where selected row begins
+//   extBot   – Y where selected row ends
+//   r        – outer corner radius
 //
-//  All outer corners are rounded.  The two inner junction corners
-//  (where protrusion meets spine) are left sharp for clarity.
-// ---------------------------------------------------------------------------
+// All outer corners are rounded. Inner junctions (spine ↔ protrusion) 
+// are sharp for visual clarity.
+// ===========================================================================
 
-ComPtr<ID2D1PathGeometry> BuildTPath(
-    float narrowW, float expandW,
+ComPtr<ID2D1PathGeometry> BuildTPath(float narrowW, float expandW,
     float totalH,
     float extTop, float extBot,
     float r)
 {
     ComPtr<ID2D1PathGeometry> path;
+
     if (FAILED(Gfx::factory->CreatePathGeometry(path.GetAddressOf())))
-        return path;
+        return nullptr;
 
     ComPtr<ID2D1GeometrySink> sink;
     if (FAILED(path->Open(sink.GetAddressOf())))
-        return path;
+        return nullptr;
 
     sink->SetFillMode(D2D1_FILL_MODE_WINDING);
 
     auto Pt = [](float x, float y) { return D2D1::Point2F(x, y); };
+
     auto Arc = [&](float ex, float ey)
         {
             D2D1_ARC_SEGMENT arc{};
@@ -358,59 +206,338 @@ ComPtr<ID2D1PathGeometry> BuildTPath(
             sink->AddArc(arc);
         };
 
-    bool hasProtrusion = (expandW > narrowW + 1.f);
+    const bool hasProtrusion = (expandW > narrowW + 1.f);
 
     if (!hasProtrusion)
     {
         // Plain rounded rect (spine only)
         sink->BeginFigure(Pt(r, 0), D2D1_FIGURE_BEGIN_FILLED);
-        sink->AddLine(Pt(narrowW - r, 0));   Arc(narrowW, r);
-        sink->AddLine(Pt(narrowW, totalH - r)); Arc(narrowW - r, totalH);
-        sink->AddLine(Pt(r, totalH));          Arc(0, totalH - r);
-        sink->AddLine(Pt(0, r));               Arc(r, 0);
+        sink->AddLine(Pt(narrowW - r, 0));
+        Arc(narrowW, r);
+        sink->AddLine(Pt(narrowW, totalH - r));
+        Arc(narrowW - r, totalH);
+        sink->AddLine(Pt(r, totalH));
+        Arc(0, totalH - r);
+        sink->AddLine(Pt(0, r));
+        Arc(r, 0);
     }
     else
     {
-        // ⊢ shape (clockwise from top-left):
-        //
-        //   (r,0) ──── (narrowW-r, 0)
-        //   arc ──> (narrowW, r)
-        //   │ down to (narrowW, extTop)          ← sharp inner corner
-        //   ──── (expandW-r, extTop)
-        //   arc ──> (expandW, extTop+r)
-        //   │ down to (expandW, extBot-r)
-        //   arc ──> (expandW-r, extBot)
-        //   ──── (narrowW, extBot)               ← sharp inner corner
-        //   │ down to (narrowW, totalH-r)
-        //   arc ──> (narrowW-r, totalH)
-        //   ──── (r, totalH)
-        //   arc ──> (0, totalH-r)
-        //   │ up to (0, r)
-        //   arc ──> (r, 0)
-
+        // T-shape with protrusion (clockwise from top-left)
         sink->BeginFigure(Pt(r, 0), D2D1_FIGURE_BEGIN_FILLED);
 
+        // Top of spine
         sink->AddLine(Pt(narrowW - r, 0));
-        Arc(narrowW, r);                            // top-right of spine
+        Arc(narrowW, r);
 
-        sink->AddLine(Pt(narrowW, extTop));         // down to bump top  (sharp)
-        sink->AddLine(Pt(expandW - r, extTop));     // across bump top
-        Arc(expandW, extTop + r);                   // top-right of bump
+        // Down spine to protrusion top (sharp inner corner)
+        sink->AddLine(Pt(narrowW, extTop));
+        sink->AddLine(Pt(expandW - r, extTop));
+        Arc(expandW, extTop + r);
 
-        sink->AddLine(Pt(expandW, extBot - r));     // down bump right side
-        Arc(expandW - r, extBot);                   // bottom-right of bump
+        // Down right side of protrusion
+        sink->AddLine(Pt(expandW, extBot - r));
+        Arc(expandW - r, extBot);
 
-        sink->AddLine(Pt(narrowW, extBot));         // across bump bottom  (sharp)
-        sink->AddLine(Pt(narrowW, totalH - r));     // down to bottom of spine
-        Arc(narrowW - r, totalH);                   // bottom-right of spine
+        // Bottom of protrusion to spine (sharp inner corner)
+        sink->AddLine(Pt(narrowW, extBot));
+        sink->AddLine(Pt(narrowW, totalH - r));
+        Arc(narrowW - r, totalH);
 
+        // Bottom of spine
         sink->AddLine(Pt(r, totalH));
-        Arc(0, totalH - r);                         // bottom-left
+        Arc(0, totalH - r);
+
+        // Left side
         sink->AddLine(Pt(0, r));
-        Arc(r, 0);                                  // top-left
+        Arc(r, 0);
     }
 
     sink->EndFigure(D2D1_FIGURE_END_CLOSED);
     sink->Close();
+
     return path;
+}
+
+// ===========================================================================
+// RENDER  (one frame)
+//
+// The scroll wheel effect works by:
+//   - scrollOffset.value is in slot units (fractional during animation)
+//   - Each visible slot is drawn at Y = slotRestY + scrollOffset.value * itemHeight
+//   - Items fade and shrink as they move away from the center slot
+//   - The center slot is the focal point (full size, full opacity)
+// ===========================================================================
+
+void RenderLayered()
+{
+    using namespace State;
+    using namespace Gfx;
+    using namespace RenderConstants;
+    // Diagnostic: force intellisense to recognize dcRT
+    auto test = dcRT.Get();
+    if (!test)
+    {
+        AppLog::Error(L"dcRT is null");
+        return;
+    }
+    const int total = static_cast<int>(g_FilteredExpansions.size());
+    if (total <= 0)
+        return;
+
+    ClampIndex(centerIndex, total);
+
+    const int W = static_cast<int>(UI::MaxWidth);
+    const int visible = (std::min)(total, g_MaxPopupItems);
+    const int H = visible * UI::ItemHeight + UI::Padding * 2;
+
+    const float scroll = scrollOffset.value;
+    const float alpha = std::clamp(opacity.value, 0.f, 1.f);
+    const float bumpW = currentWidth;
+
+    const int half = visible / 2;
+    const float extTop = static_cast<float>(UI::Padding + half * UI::ItemHeight);
+    const float extBot = extTop + static_cast<float>(UI::ItemHeight);
+
+    const D2D1::ColorF accent = GetAccent(g_FilteredExpansions[centerIndex].value);
+
+    // -----------------------------------------------------------------------
+    // SETUP: off-screen DIB and rendering context
+    // -----------------------------------------------------------------------
+    HDC screenDC = GetDC(nullptr);
+    if (!screenDC)
+    {
+        AppLog::Error(L"RenderLayered: GetDC(nullptr) failed");
+        return;
+    }
+
+    HDC memDC = CreateCompatibleDC(screenDC);
+    if (!memDC)
+    {
+        AppLog::Error(L"RenderLayered: CreateCompatibleDC failed");
+        ReleaseDC(nullptr, screenDC);
+        return;
+    }
+
+    BITMAPINFO bmi{};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = W;
+    bmi.bmiHeader.biHeight = -H;       // negative = top-down
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+
+    void* bits = nullptr;
+    HBITMAP bmp = CreateDIBSection(screenDC, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+
+    if (!bmp)
+    {
+        AppLog::Error(L"RenderLayered: CreateDIBSection failed");
+        DeleteDC(memDC);
+        ReleaseDC(nullptr, screenDC);
+        return;
+    }
+
+    SelectObject(memDC, bmp);
+
+    RECT rcBind = { 0, 0, W, H };
+    dcRT->BindDC(memDC, &rcBind);
+
+    // -----------------------------------------------------------------------
+    // BEGIN DRAWING
+    // -----------------------------------------------------------------------
+    dcRT->BeginDraw();
+
+    dcRT->Clear({ 0, 0, 0, 0 });
+
+    // -----------------------------------------------------------------------
+    // BACKGROUND: T-shape with border
+    // -----------------------------------------------------------------------
+    ComPtr<ID2D1PathGeometry> tPath = BuildTPath(
+        UI::SpineWidth, bumpW, static_cast<float>(H),
+        extTop, extBot, UI::OuterRadius);
+
+    if (tPath)
+    {
+        ComPtr<ID2D1SolidColorBrush> bgBrush, borderBrush;
+
+        if (SUCCEEDED(dcRT->CreateSolidColorBrush(
+            { 0.10f, 0.10f, 0.13f, BgAlpha * alpha },
+            bgBrush.GetAddressOf())) &&
+            SUCCEEDED(dcRT->CreateSolidColorBrush(
+                { accent.r, accent.g, accent.b, BorderAlpha * alpha },
+                borderBrush.GetAddressOf())))
+        {
+            dcRT->FillGeometry(tPath.Get(), bgBrush.Get());
+            dcRT->DrawGeometry(tPath.Get(), borderBrush.Get(), 1.0f);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // SELECTED ITEM HIGHLIGHT CARD
+    // -----------------------------------------------------------------------
+    {
+        ComPtr<ID2D1SolidColorBrush> cardBrush;
+
+        if (SUCCEEDED(dcRT->CreateSolidColorBrush(
+            { accent.r, accent.g, accent.b, CardAlpha * alpha },
+            cardBrush.GetAddressOf())))
+        {
+            D2D1_ROUNDED_RECT card{
+                D2D1::RectF(UI::HorzPad * 0.5f,
+                            extTop + CardPadding,
+                            bumpW - UI::HorzPad * 0.5f,
+                            extBot - CardPadding),
+                UI::CardRadius, UI::CardRadius
+            };
+
+            DrawGlow(dcRT.Get(), card, accent, alpha);
+            dcRT->FillRoundedRectangle(card, cardBrush.Get());
+
+            ComPtr<ID2D1SolidColorBrush> borderBrush;
+            if (SUCCEEDED(dcRT->CreateSolidColorBrush(
+                { accent.r, accent.g, accent.b, BorderAlpha * alpha },
+                borderBrush.GetAddressOf())))
+            {
+                dcRT->DrawRoundedRectangle(card, borderBrush.Get(), 1.0f);
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // DRAW ITEMS (scroll wheel effect)
+    // -----------------------------------------------------------------------
+    dcRT->PushAxisAlignedClip(
+        D2D1::RectF(0, static_cast<float>(UI::Padding),
+            static_cast<float>(W),
+            static_cast<float>(H - UI::Padding)),
+        D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+
+    for (int s = -1; s <= visible; ++s)
+    {
+        const float slotY = static_cast<float>(UI::Padding + s * UI::ItemHeight);
+        const float rowTop = slotY + scroll * static_cast<float>(UI::ItemHeight);
+        const float rowMid = rowTop + static_cast<float>(UI::ItemHeight) * 0.5f;
+
+        // Skip entirely out-of-clip items
+        if (rowTop + static_cast<float>(UI::ItemHeight) < static_cast<float>(UI::Padding))
+            continue;
+        if (rowTop > static_cast<float>(H - UI::Padding))
+            continue;
+
+        // Distance from center slot (fractional during animation)
+        const float distFromCenter = static_cast<float>(s - half) + scroll;
+        const float absDist = std::abs(distFromCenter);
+
+        // Map to data item via circular wrapping
+        const int idx = WrapIndex(centerIndex, s - half, total);
+
+        if (idx < 0 || idx >= total)
+            continue;
+
+        // Visual interpolation: items fade/shrink as they move away
+        const float t = (std::min)(1.f, absDist);
+        const float smooth = t * t * (3.f - 2.f * t);    // smoothstep
+
+        const float fontSize = UI::FontCenter + (UI::FontSide - UI::FontCenter) * smooth;
+        const float textAlpha = (1.0f - smooth * TextAlphaFade) * alpha;
+
+        if (textAlpha < 0.01f)
+            continue;
+
+        const auto& text = g_FilteredExpansions[idx].value;
+        const bool isCenter = (absDist < CenterDistThresh);
+
+        ComPtr<ID2D1SolidColorBrush> textBrush;
+        if (FAILED(dcRT->CreateSolidColorBrush(
+            { 1.f, 1.f, 1.f, textAlpha },
+            textBrush.GetAddressOf())))
+            continue;
+
+        if (isCenter)
+        {
+            // Center item: full width in protrusion zone
+            const float ty = rowMid - fontSize * 0.5f;
+            dcRT->DrawTextW(
+                text.c_str(), static_cast<UINT32>(text.size()),
+                fmtCenter.Get(),
+                D2D1::RectF(UI::HorzPad, ty, bumpW - UI::HorzPad, ty + fontSize),
+                textBrush.Get(),
+                D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
+        }
+        else
+        {
+            // Off-center items: clipped to spine with ellipsis
+            dcRT->PushAxisAlignedClip(
+                D2D1::RectF(0, rowTop,
+                    UI::SpineWidth,
+                    rowTop + static_cast<float>(UI::ItemHeight)),
+                D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+
+            const float textW = UI::SpineWidth - UI::HorzPad * 2.f;
+            const float ty = rowMid - fontSize * 0.5f;
+
+            ComPtr<IDWriteTextLayout> layout;
+            if (writeFactory && fmtSide &&
+                SUCCEEDED(writeFactory->CreateTextLayout(
+                    text.c_str(), static_cast<UINT32>(text.size()),
+                    fmtSide.Get(), textW, fontSize + 4.f,
+                    layout.GetAddressOf())))
+            {
+                ComPtr<IDWriteInlineObject> ellipsis;
+                if (SUCCEEDED(writeFactory->CreateEllipsisTrimmingSign(
+                    fmtSide.Get(), ellipsis.GetAddressOf())))
+                {
+                    DWRITE_TRIMMING trim{ DWRITE_TRIMMING_GRANULARITY_CHARACTER, 0, 0 };
+                    layout->SetTrimming(&trim, ellipsis.Get());
+                }
+
+                dcRT->DrawTextLayout(
+                    D2D1::Point2F(UI::HorzPad, ty),
+                    layout.Get(), textBrush.Get(),
+                    D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
+            }
+
+            dcRT->PopAxisAlignedClip();
+        }
+    }
+
+    dcRT->PopAxisAlignedClip();
+
+    // -----------------------------------------------------------------------
+    // END DRAWING AND BLIT
+    // -----------------------------------------------------------------------
+    HRESULT hr = dcRT->EndDraw();
+    if (FAILED(hr))
+    {
+        AppLog::Error(L"RenderLayered: BeginDraw failed");
+        DeleteObject(bmp);
+        DeleteDC(memDC);
+        ReleaseDC(nullptr, screenDC);
+        return;
+    }
+
+    RECT wr{};
+    if (!GetWindowRect(hwnd, &wr))
+    {
+        AppLog::Warn(L"RenderLayered: GetWindowRect failed");
+        wr = { 0, 0, W, H };
+    }
+
+    POINT dst = { wr.left, wr.top };
+    POINT src = { 0, 0 };
+    SIZE sz = { W, H };
+
+    BLENDFUNCTION bf{};
+    bf.BlendOp = AC_SRC_OVER;
+    bf.SourceConstantAlpha = 255;
+    bf.AlphaFormat = AC_SRC_ALPHA;
+
+    UpdateLayeredWindow(hwnd, screenDC, &dst, &sz, memDC, &src, 0, &bf, ULW_ALPHA);
+
+    // -----------------------------------------------------------------------
+    // CLEANUP
+    // -----------------------------------------------------------------------
+    DeleteObject(bmp);
+    DeleteDC(memDC);
+    ReleaseDC(nullptr, screenDC);
 }

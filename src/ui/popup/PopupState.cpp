@@ -1,52 +1,54 @@
-// PopupState.cpp
-
 #include "PopupState.h"
 #include <cmath>
 
-// ---------------------------------------------------------------------------
-// UI CONSTANTS
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// UI CONSTANTS  –  layout dimensions and typography
+// ===========================================================================
 
 namespace UI
 {
-    const float SpineWidth = 150.0f;
-    const float MaxWidth = 420.0f;
-    const float HorzPad = 18.0f;
-    const int   ItemHeight = 42;
-    const int   Padding = 6;
+    const float SpineWidth = 150.0f;     // narrow column for off-center items
+    const float MaxWidth = 420.0f;     // total window width when expanded
+    const float HorzPad = 18.0f;      // horizontal text padding
+    const int   ItemHeight = 42;         // pixels per item row
+    const int   Padding = 6;          // top/bottom padding inside window
 
-    const float OuterRadius = 12.0f;
-    const float CardRadius = 8.0f;
+    const float OuterRadius = 12.0f;      // popup frame corner radius
+    const float CardRadius = 8.0f;       // selected-item card corner radius
 
-    const float FontCenter = 20.0f;
-    const float FontSide = 14.0f;
+    const float FontCenter = 20.0f;      // selected item font size
+    const float FontSide = 14.0f;      // off-center item font size
 }
 
-// ---------------------------------------------------------------------------
-// ANIMATION CONSTANTS
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// ANIMATION CONSTANTS  –  spring physics and timer
+//
+// Stiffness (k): higher = faster snap toward target
+// Damping (b):  higher = less oscillation
+// For critical damping: b = 2 * sqrt(k * mass)  (mass = 1 here)
+// ===========================================================================
 
 namespace Anim
 {
     const int   TimerID = 1;
-    const int   Interval = 16;
+    const int   Interval = 16;            // ~60 fps
 
-    const float SStiffness = 600.0f;
+    const float SStiffness = 600.0f;        // scroll spring – snappy
     const float SDamping = 98.0f;
 
-    const float OStiffness = 200.0f;
+    const float OStiffness = 200.0f;        // opacity spring – gentle
     const float ODamping = 28.0f;
 
-    const float Dt = 0.016f;
-    const float EpsS = 0.002f;
-    const float EpsO = 0.004f;
+    const float Dt = 0.016f;        // physics step (matches timer)
+    const float EpsS = 0.002f;        // scroll settle threshold
+    const float EpsO = 0.004f;        // opacity settle threshold
 
-    bool animEnabled = false;
+    bool animEnabled = true;                // animations on by default
 }
 
-// ---------------------------------------------------------------------------
-// STATE VARIABLES
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// STATE VARIABLES  –  mutable runtime state
+// ===========================================================================
 
 namespace State
 {
@@ -65,11 +67,14 @@ namespace State
     bool  dragging = false;
     POINT dragStart = {};
     POINT winStart = {};
+
+    int popupFixedX = 50;
+    int popupFixedY = 50;
 }
 
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // GRAPHICS RESOURCES
-// ---------------------------------------------------------------------------
+// ===========================================================================
 
 namespace Gfx
 {
@@ -80,16 +85,9 @@ namespace Gfx
     ComPtr<IDWriteTextFormat>   fmtSide;
 }
 
-// ---------------------------------------------------------------------------
-// GLOBAL FIXED POSITION
-// ---------------------------------------------------------------------------
-
-int g_PopupFixedX = 50;
-int g_PopupFixedY = 50;
-
-// ---------------------------------------------------------------------------
-// SPRING IMPLEMENTATION
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// SPRING IMPLEMENTATION  –  critically-damped spring physics
+// ===========================================================================
 
 void State::Spring::snap(float t)
 {
@@ -105,11 +103,14 @@ void State::Spring::setTarget(float t)
 
 bool State::Spring::step(float k, float b, float dt, float eps)
 {
-    float f = k * (target - value) - b * velocity;
-    velocity += f * dt;
+    // Hooke's law with damping:  F = k(target - value) - b * velocity
+    float force = k * (target - value) - b * velocity;
+
+    velocity += force * dt;
     value += velocity * dt;
 
-    bool done = fabsf(target - value) <= eps && fabsf(velocity) <= eps;
+    // Spring is "done" when both value and velocity are within epsilon
+    bool done = std::abs(target - value) <= eps && std::abs(velocity) <= eps;
 
     if (done)
     {

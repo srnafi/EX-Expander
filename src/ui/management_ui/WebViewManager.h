@@ -5,12 +5,12 @@
 
 using Microsoft::WRL::ComPtr;
 
-// Globals (same names preserved)
+// Globals
 extern HWND g_uiWindow;
 extern ComPtr<ICoreWebView2Controller> g_controller;
 extern ComPtr<ICoreWebView2> g_webview;
 
-// WebView lifecycle
+// Initialize WebView2 (async — returns immediately)
 void InitWebView(HWND hwnd);
 
 // Window procedure

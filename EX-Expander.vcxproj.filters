@@ -42,15 +42,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\Database.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\EmojiMatcher.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\EmojiReplacer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\EX-Expander.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -58,15 +49,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\ft2build.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Globals.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\InputBuffer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\KeyboardHook.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\Resource.h">
@@ -77,9 +59,6 @@
     </ClInclude>
     <ClInclude Include="external\sqlite\sqlite3.h">
       <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Helper.h">
-      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\ui\popup\popup.h">
       <Filter>Source Files\ui\popup</Filter>
@@ -105,12 +84,6 @@
     <ClInclude Include="src\ui\popup\PopupWindow.h">
       <Filter>Source Files\ui\popup</Filter>
     </ClInclude>
-    <ClInclude Include="src\ui\management_ui\InstalledAppsBridge.h">
-      <Filter>Source Files\ui\webui</Filter>
-    </ClInclude>
-    <ClInclude Include="src\ui\management_ui\WebJsonBuilder.h">
-      <Filter>Source Files\ui\webui</Filter>
-    </ClInclude>
     <ClInclude Include="src\ui\management_ui\WebMessageHandler.h">
       <Filter>Source Files\ui\webui</Filter>
     </ClInclude>
@@ -129,11 +102,32 @@
     <ClInclude Include="src\helper\InstalledApps.h">
       <Filter>Source Files\helper</Filter>
     </ClInclude>
-    <ClInclude Include="src\helper\Settings.h">
-      <Filter>Source Files\helper</Filter>
-    </ClInclude>
     <ClInclude Include="src\helper\StringUtils.h">
       <Filter>Source Files\helper</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\InputBuffer.h">
+      <Filter>Source Files\core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\KeyboardHook.h">
+      <Filter>Source Files\core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\TextInsertion.h">
+      <Filter>Source Files\core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\Database.h">
+      <Filter>Source Files\db</Filter>
+    </ClInclude>
+    <ClInclude Include="src\globals\Globals.h">
+      <Filter>Source Files\globals</Filter>
+    </ClInclude>
+    <ClInclude Include="src\helper\AppLog.h">
+      <Filter>Source Files\helper</Filter>
+    </ClInclude>
+    <ClInclude Include="src\helper\Helper.h">
+      <Filter>Source Files\helper</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\management_ui\WebViewBridge.h">
+      <Filter>Source Files\ui\webui</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -153,10 +147,7 @@
     <ClCompile Include="src\app\App.cpp">
       <Filter>Source Files\app</Filter>
     </ClCompile>
-    <ClCompile Include="src\core\EmojiMatcher.cpp">
-      <Filter>Source Files\core</Filter>
-    </ClCompile>
-    <ClCompile Include="src\core\EmojiReplacer.cpp">
+    <ClCompile Include="src\core\TextInsertion.cpp">
       <Filter>Source Files\core</Filter>
     </ClCompile>
     <ClCompile Include="src\core\InputBuffer.cpp">
@@ -198,12 +189,6 @@
     <ClCompile Include="src\ui\popup\PopupWindow.cpp">
       <Filter>Source Files\ui\popup</Filter>
     </ClCompile>
-    <ClCompile Include="src\ui\management_ui\InstalledAppsBridge.cpp">
-      <Filter>Source Files\ui\webui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ui\management_ui\WebJsonBuilder.cpp">
-      <Filter>Source Files\ui\webui</Filter>
-    </ClCompile>
     <ClCompile Include="src\ui\management_ui\WebMessageHandler.cpp">
       <Filter>Source Files\ui\webui</Filter>
     </ClCompile>
@@ -222,14 +207,17 @@
     <ClCompile Include="src\helper\InstalledApps.cpp">
       <Filter>Source Files\helper</Filter>
     </ClCompile>
-    <ClCompile Include="src\helper\Settings.cpp">
-      <Filter>Source Files\helper</Filter>
-    </ClCompile>
     <ClCompile Include="src\helper\StringUtils.cpp">
       <Filter>Source Files\helper</Filter>
     </ClCompile>
-    <ClCompile Include="src\data\Helper.cpp">
+    <ClCompile Include="src\helper\AppLog.cpp">
       <Filter>Source Files\helper</Filter>
+    </ClCompile>
+    <ClCompile Include="src\helper\Helper.cpp">
+      <Filter>Source Files\helper</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\management_ui\WebViewBridge.cpp">
+      <Filter>Source Files\ui\webui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -6,7 +6,16 @@
 
 using Microsoft::WRL::ComPtr;
 
-// UI constants
+// ---------------------------------------------------------------------------
+// PopupState
+//
+// Central hub for all popup-related globals:
+//   UI    – layout constants (sizes, fonts, colors)
+//   Anim  – spring physics constants and animation toggle
+//   State – runtime mutable state (window handle, springs, selection)
+//   Gfx   – Direct2D / DirectWrite resource pointers
+// ---------------------------------------------------------------------------
+
 namespace UI
 {
     extern const float SpineWidth;
@@ -20,23 +29,21 @@ namespace UI
     extern const float FontSide;
 }
 
-// Animation constants + toggle
 namespace Anim
 {
     extern const int   TimerID;
-    extern const int   Interval;
-    extern const float SStiffness;
-    extern const float SDamping;
-    extern const float OStiffness;
-    extern const float ODamping;
-    extern const float Dt;
-    extern const float EpsS;
-    extern const float EpsO;
+    extern const int   Interval;       // milliseconds (~60 fps)
+    extern const float SStiffness;     // scroll spring stiffness
+    extern const float SDamping;       // scroll spring damping
+    extern const float OStiffness;     // opacity spring stiffness
+    extern const float ODamping;       // opacity spring damping
+    extern const float Dt;             // physics timestep (seconds)
+    extern const float EpsS;           // scroll settle threshold
+    extern const float EpsO;           // opacity settle threshold
 
-    extern bool animEnabled;
+    extern bool animEnabled;           // master animation on/off
 }
 
-// Runtime state
 namespace State
 {
     extern HWND hwnd;
@@ -44,14 +51,33 @@ namespace State
     extern int  lastKey;
     extern bool timerActive;
 
+    // ---------------------------------------------------------------------------
+    // Critically-damped spring for smooth animation.
+    //
+    //   value     – current position
+    //   target    – where the spring is pulling toward
+    //   velocity  – current rate of change
+    //
+    // Direct field access is intentional — Spring is a POD-like struct.
+    // ---------------------------------------------------------------------------
     struct Spring
     {
-        float value;
-        float velocity;
-        float target;
+        float value = 0.f;
+        float velocity = 0.f;
+        float target = 0.f;
 
+        // Set value and target instantly, killing velocity
         void snap(float t);
+
+        // Set target only — value will spring toward it over time
         void setTarget(float t);
+
+        // Advance one physics step. Returns true if still moving.
+        //
+        //   k   – stiffness
+        //   b   – damping
+        //   dt  – timestep
+        //   eps – settle threshold
         bool step(float k, float b, float dt, float eps);
     };
 
@@ -64,9 +90,12 @@ namespace State
     extern bool  dragging;
     extern POINT dragStart;
     extern POINT winStart;
+
+    // Fixed popup position (when not in cursor-follow mode)
+    extern int popupFixedX;
+    extern int popupFixedY;
 }
 
-// Graphics resources
 namespace Gfx
 {
     extern ComPtr<ID2D1Factory>        factory;
@@ -75,7 +104,3 @@ namespace Gfx
     extern ComPtr<IDWriteTextFormat>   fmtCenter;
     extern ComPtr<IDWriteTextFormat>   fmtSide;
 }
-
-// Fixed popup position
-extern int g_PopupFixedX;
-extern int g_PopupFixedY;
