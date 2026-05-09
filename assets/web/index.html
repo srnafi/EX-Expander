@@ -1,578 +1,381 @@
-﻿﻿<!doctype html>
+﻿﻿
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Expansion Manager</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles.css">
     <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
     </style>
-  </head>
-  <body>
+</head>
+<body>
     <!-- Header -->
     <header class="header">
-      <div class="header-content">
-        <div class="search-container">
-          <svg
-            class="search-icon"
-            width="20"
-            height="20"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <circle cx="9" cy="9" r="7"></circle>
-            <path d="m14 14 4 4"></path>
-          </svg>
-          <input
-            type="text"
-            class="search-input"
-            id="searchInput"
-            placeholder="Search expansions..."
-            autocomplete="off"
-          />
+        <div class="header-content">
+            <div class="search-container">
+                <svg class="search-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="9" cy="9" r="7"></circle>
+                    <path d="m14 14 4 4"></path>
+                </svg>
+                <input type="text" class="search-input" id="searchInput" placeholder="Search expansions..." autocomplete="off" />
+            </div>
+            <button type="button" class="icon-btn" id="settingsToggle" aria-label="Settings" title="Settings">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+            </button>
+            <button type="button" class="icon-btn theme-toggle" id="themeToggle" aria-label="Toggle theme" title="Toggle theme">
+                <svg class="theme-icon theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="4"></circle>
+                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+                </svg>
+                <svg class="theme-icon theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
         </div>
-        <button
-          type="button"
-          class="icon-btn"
-          id="settingsToggle"
-          aria-label="Settings"
-          title="Settings"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <circle cx="12" cy="12" r="3"></circle>
-            <path
-              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-            ></path>
-          </svg>
-        </button>
-        <button
-          type="button"
-          class="icon-btn theme-toggle"
-          id="themeToggle"
-          aria-label="Toggle theme"
-          title="Toggle theme"
-        >
-          <svg
-            class="theme-icon theme-icon-sun"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <circle cx="12" cy="12" r="4"></circle>
-            <path
-              d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
-            ></path>
-          </svg>
-          <svg
-            class="theme-icon theme-icon-moon"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-          </svg>
-        </button>
-      </div>
     </header>
 
     <!-- Section tabs -->
     <div class="tabs-bar">
-      <div class="tabs-bar-inner">
-        <div class="tabs" role="tablist">
-          <button
-            type="button"
-            class="tab active"
-            data-section="text"
-            role="tab"
-            aria-selected="true"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2"></path>
-              <path d="M9 20h6M12 4v16"></path>
-            </svg>
-            <span>Text</span>
-          </button>
-          <button
-            type="button"
-            class="tab"
-            data-section="emoji"
-            role="tab"
-            aria-selected="false"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
-              <line x1="9" y1="9" x2="9.01" y2="9"></line>
-              <line x1="15" y1="9" x2="15.01" y2="9"></line>
-            </svg>
-            <span>Emoji</span>
-          </button>
+        <div class="tabs-bar-inner">
+            <div class="tabs" role="tablist">
+                <button type="button" class="tab active" data-section="text" role="tab" aria-selected="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2"></path>
+                        <path d="M9 20h6M12 4v16"></path>
+                    </svg>
+                    <span>Text</span>
+                </button>
+                <button type="button" class="tab" data-section="emoji" role="tab" aria-selected="false">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                        <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                        <line x1="15" y1="9" x2="15.01" y2="9"></line>
+                    </svg>
+                    <span>Emoji</span>
+                </button>
+            </div>
+            <button type="button" class="btn btn-primary new-expansion-btn" id="openNewExpansionBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M15 4V2m0 20v-2M8.5 8.5l-1.4-1.4m9.8 9.8 1.4 1.4M4 15H2m20 0h-2M8.5 21.5l-1.4 1.4M16.9 6.6l1.4-1.4"></path>
+                    <path d="M12 12.5 9.5 15l4 4 9-9-4-4-2.5 2.5"></path>
+                </svg>
+                <span>New Expansion</span>
+            </button>
         </div>
-      </div>
     </div>
 
     <!-- Main Container -->
     <div class="container">
-      <div class="content">
-        <div class="content-max-width">
-          <!-- Table -->
-          <div class="table-wrapper">
-            <div class="table-header">
-              <div>Token</div>
-              <div>Expansion</div>
-              <div>Tags</div>
-              <div></div>
+        <div class="content">
+            <div class="content-max-width">
+                <!-- Table -->
+                <div class="table-wrapper">
+                    <div class="table-header">
+                        <div>Token</div>
+                        <div>Expansion</div>
+                        <div>Tags</div>
+                        <div></div>
+                    </div>
+                    <div class="table-body" id="tableBody"></div>
+                </div>
+
+                <!-- Legacy inline insert form (kept hidden; new modal flow lives at bottom of app.js) -->
+                <div class="insert-form legacy-insert-form" id="insertFormWrapper" hidden aria-hidden="true">
+                    <button type="button" class="form-title" id="insertFormToggle" aria-expanded="true" aria-controls="insertForm">
+                        <span id="insertFormTitle">Add New Text Expansion</span>
+                        <svg class="form-title-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
+                    <form class="form-grid" id="insertForm">
+                        <div class="form-group">
+                            <label class="form-label" for="tokenInput">Token</label>
+                            <input type="text" class="form-input" id="tokenInput" placeholder=";name" autocomplete="off" maxlength="50" />
+                            <div class="error-message" id="tokenError"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="expansionInput">Expansion</label>
+                            <input type="text" class="form-input" id="expansionInput" placeholder="Expanded text..." autocomplete="off" />
+                            <div class="error-message" id="expansionError"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="tagsInput">Tags</label>
+                            <input type="text" class="form-input" id="tagsInput" placeholder="work, urgent (comma or Enter)" autocomplete="off" />
+                            <div class="chip-preview" id="tagsPreview"></div>
+                            <div class="error-message" id="tagsError"></div>
+                        </div>
+
+                        <div class="form-buttons">
+                            <button type="submit" class="btn btn-primary" form="insertForm">Insert</button>
+                            <button type="reset" class="btn btn-secondary" form="insertForm">Clear</button>
+                        </div>
+                    </form>
+                </div>
             </div>
-            <div class="table-body" id="tableBody"></div>
-          </div>
-
-          <!-- Insert Form -->
-          <div class="insert-form" id="insertFormWrapper">
-            <button
-              type="button"
-              class="form-title"
-              id="insertFormToggle"
-              aria-expanded="true"
-              aria-controls="insertForm"
-            >
-              <span id="insertFormTitle">Add New Text Expansion</span>
-              <svg
-                class="form-title-chevron"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <polyline points="6 9 12 15 18 9"></polyline>
-              </svg>
-            </button>
-            <form class="form-grid" id="insertForm">
-              <div class="form-group">
-                <label class="form-label" for="tokenInput">Token</label>
-                <input
-                  type="text"
-                  class="form-input"
-                  id="tokenInput"
-                  placeholder=";name"
-                  autocomplete="off"
-                  maxlength="50"
-                />
-                <div class="error-message" id="tokenError"></div>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="expansionInput">Expansion</label>
-                <input
-                  type="text"
-                  class="form-input"
-                  id="expansionInput"
-                  placeholder="Expanded text..."
-                  autocomplete="off"
-                />
-                <div class="error-message" id="expansionError"></div>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="tagsInput">Tags</label>
-                <input
-                  type="text"
-                  class="form-input"
-                  id="tagsInput"
-                  placeholder="work, urgent (comma or Enter)"
-                  autocomplete="off"
-                />
-                <div class="chip-preview" id="tagsPreview"></div>
-                <div class="error-message" id="tagsError"></div>
-              </div>
-
-              <div class="form-buttons">
-                <button type="submit" class="btn btn-primary" form="insertForm">
-                  Insert
-                </button>
-                <button
-                  type="reset"
-                  class="btn btn-secondary"
-                  form="insertForm"
-                >
-                  Clear
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
-      </div>
     </div>
 
     <!-- Edit Modal -->
     <div class="modal" id="editModal">
-      <div class="modal-content">
-        <div class="modal-header">Edit Expansion</div>
-        <form class="form-grid" id="editForm" style="gap: 1rem">
-          <div class="form-group">
-            <label class="form-label" for="editTokenInput">Token</label>
-            <input
-              type="text"
-              class="form-input"
-              id="editTokenInput"
-              autocomplete="off"
-              maxlength="50"
-            />
-            <div class="error-message" id="editTokenError"></div>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="editExpansionInput">Expansion</label>
-            <input
-              type="text"
-              class="form-input"
-              id="editExpansionInput"
-              autocomplete="off"
-            />
-            <div class="error-message" id="editExpansionError"></div>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="editTagsInput">Tags</label>
-            <input
-              type="text"
-              class="form-input"
-              id="editTagsInput"
-              placeholder="work, urgent"
-              autocomplete="off"
-            />
-            <div class="chip-preview" id="editTagsPreview"></div>
-          </div>
-        </form>
-        <div class="modal-footer">
-          <button
-            type="button"
-            class="btn btn-secondary"
-            onclick="closeEditModal()"
-          >
-            Cancel
-          </button>
-          <button type="button" class="btn btn-primary" onclick="saveEdit()">
-            Save
-          </button>
+        <div class="modal-content">
+            <div class="modal-header">Edit Expansion</div>
+            <form class="form-grid" id="editForm" style="gap: 1rem;">
+                <div class="form-group">
+                    <label class="form-label" for="editTokenInput">Token</label>
+                    <input type="text" class="form-input" id="editTokenInput" autocomplete="off" maxlength="50" />
+                    <div class="error-message" id="editTokenError"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="editExpansionInput">Expansion</label>
+                    <textarea class="form-input edit-expansion-textarea" id="editExpansionInput" rows="6" autocomplete="off" spellcheck="true"></textarea>
+                    <div class="error-message" id="editExpansionError"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="editTagsInput">Tags</label>
+                    <input type="text" class="form-input" id="editTagsInput" placeholder="work, urgent" autocomplete="off" />
+                    <div class="chip-preview" id="editTagsPreview"></div>
+                </div>
+            </form>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveEdit()">Save</button>
+            </div>
         </div>
-      </div>
     </div>
 
     <!-- Delete Modal -->
     <div class="modal" id="deleteModal">
-      <div class="modal-content">
-        <div class="modal-header">Delete Expansion?</div>
-        <div class="modal-body">
-          Are you sure you want to delete this expansion? This action cannot be
-          undone.
+        <div class="modal-content">
+            <div class="modal-header">Delete Expansion?</div>
+            <div class="modal-body">Are you sure you want to delete this expansion? This action cannot be undone.</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+            </div>
         </div>
-        <div class="modal-footer">
-          <button
-            type="button"
-            class="btn btn-secondary"
-            onclick="closeDeleteModal()"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            class="btn btn-danger"
-            onclick="confirmDelete()"
-          >
-            Delete
-          </button>
-        </div>
-      </div>
     </div>
 
     <!-- Settings Modal -->
     <div class="modal" id="settingsModal">
-      <div class="modal-content settings-modal-content">
-        <div class="modal-header">Settings</div>
-        <div class="settings-list">
-          <div class="setting-row">
-            <div class="setting-info">
-              <div class="setting-label">Auto-start on system boot</div>
-              <div class="setting-desc">
-                Launch the app automatically when you log in.
-              </div>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="settingAutoStart" />
-              <span class="switch-slider"></span>
-            </label>
-          </div>
+        <div class="modal-content settings-modal-content">
+            <div class="modal-header">Settings</div>
+            <div class="settings-list">
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Auto-start on system boot</div>
+                        <div class="setting-desc">Launch the app automatically when you log in.</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="settingAutoStart" />
+                        <span class="switch-slider"></span>
+                    </label>
+                </div>
 
-          <div class="setting-row">
-            <div class="setting-info">
-              <div class="setting-label">Emoji trigger symbol</div>
-              <div class="setting-desc">
-                Symbol that starts an emoji shortcut.
-              </div>
-            </div>
-            <div class="segmented" data-setting="emojiSymbol">
-              <button type="button" data-value=";">;</button>
-              <button type="button" data-value=":">:</button>
-            </div>
-          </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Emoji trigger symbol</div>
+                        <div class="setting-desc">Symbol that starts an emoji shortcut.</div>
+                    </div>
+                    <div class="segmented" data-setting="emojiSymbol">
+                        <button type="button" data-value=";">;</button>
+                        <button type="button" data-value=":">:</button>
+                    </div>
+                </div>
 
-          <div class="setting-row">
-            <div class="setting-info">
-              <div class="setting-label">Popup position</div>
-              <div class="setting-desc">Where the suggestion popup appears.</div>
-            </div>
-            <div class="segmented" data-setting="popupPosition">
-              <button type="button" data-value="cursor">Cursor</button>
-              <button type="button" data-value="fixed">Fixed</button>
-            </div>
-          </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Max popup items</div>
+                        <div class="setting-desc">Maximum suggestions shown at once (1–10).</div>
+                    </div>
+                    <div class="stepper">
+                        <button type="button" id="stepperDown" aria-label="Decrease">−</button>
+                        <input type="number" id="settingMaxPopup" min="1" max="10" value="7" />
+                        <button type="button" id="stepperUp" aria-label="Increase">+</button>
+                    </div>
+                </div>
 
-          <div class="setting-row">
-            <div class="setting-info">
-              <div class="setting-label">Max popup items</div>
-              <div class="setting-desc">
-                Maximum suggestions shown at once (1–10).
-              </div>
-            </div>
-            <div class="stepper">
-              <button type="button" id="stepperDown" aria-label="Decrease">
-                −
-              </button>
-              <input
-                type="number"
-                id="settingMaxPopup"
-                min="1"
-                max="10"
-                value="7"
-              />
-              <button type="button" id="stepperUp" aria-label="Increase">
-                +
-              </button>
-            </div>
-          </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Insert trigger</div>
+                        <div class="setting-desc">What confirms an emoji insertion.</div>
+                    </div>
+                    <div class="segmented" data-setting="insertTrigger">
+                        <button type="button" data-value="space">Space</button>
+                        <button type="button" data-value="symbol">Symbol</button>
+                    </div>
+                </div>
 
-          <div class="setting-row">
-            <div class="setting-info">
-              <div class="setting-label">Insert trigger</div>
-              <div class="setting-desc">What confirms an emoji insertion.</div>
+                <div class="setting-row setting-row-stack">
+                    <div class="setting-info">
+                        <div class="setting-label">Application scope</div>
+                        <div class="setting-desc" id="appScopeSummary">Choose which installed apps expansions run in.</div>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-compact" id="openAppScopeBtn">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                            <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                            <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                            <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                        </svg>
+                        <span>Manage apps</span>
+                    </button>
+                </div>
             </div>
-            <div class="segmented" data-setting="insertTrigger">
-              <button type="button" data-value="space">Space</button>
-              <button type="button" data-value="symbol">Symbol</button>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeSettingsModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveSettings()">Save</button>
             </div>
-          </div>
-
-          <div class="setting-row setting-row-stack">
-            <div class="setting-info">
-              <div class="setting-label">Application scope</div>
-              <div class="setting-desc" id="appScopeSummary">
-                Choose which installed apps expansions run in.
-              </div>
-            </div>
-            <button
-              type="button"
-              class="btn btn-secondary btn-compact"
-              id="openAppScopeBtn"
-            >
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <rect x="3" y="3" width="7" height="7" rx="1"></rect>
-                <rect x="14" y="3" width="7" height="7" rx="1"></rect>
-                <rect x="3" y="14" width="7" height="7" rx="1"></rect>
-                <rect x="14" y="14" width="7" height="7" rx="1"></rect>
-              </svg>
-              <span>Manage apps</span>
-            </button>
-          </div>
         </div>
-        <div class="modal-footer">
-          <button
-            type="button"
-            class="btn btn-secondary"
-            onclick="closeSettingsModal()"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            onclick="saveSettings()"
-          >
-            Save
-          </button>
-        </div>
-      </div>
     </div>
 
     <!-- App Scope Modal -->
     <div class="modal" id="appScopeModal">
-      <div class="modal-content app-scope-modal-content">
-        <div class="modal-header">
-          <div>
-            <div>Application Scope</div>
-            <div class="modal-subheader">
-              Pick which installed apps the text expander should run in.
+        <div class="modal-content app-scope-modal-content">
+            <div class="modal-header">
+                <div>
+                    <div>Application Scope</div>
+                    <div class="modal-subheader">Pick which installed apps the text expander should run in.</div>
+                </div>
             </div>
-          </div>
-        </div>
 
-        <div class="app-scope-controls">
-          <div class="segmented segmented-block" data-setting="scopeMode">
-            <button
-              type="button"
-              data-value="allow"
-              title="Run only in selected apps"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-              <span>Allow in selected</span>
-            </button>
-            <button
-              type="button"
-              data-value="block"
-              title="Run everywhere except selected apps"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <circle cx="12" cy="12" r="9"></circle>
-                <line x1="5.5" y1="5.5" x2="18.5" y2="18.5"></line>
-              </svg>
-              <span>Block in selected</span>
-            </button>
-          </div>
+            <div class="app-scope-controls">
+                <div class="segmented segmented-block" data-setting="scopeMode">
+                    <button type="button" data-value="allow" title="Run only in selected apps">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>Allow in selected</span>
+                    </button>
+                    <button type="button" data-value="block" title="Run everywhere except selected apps">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="9"></circle>
+                            <line x1="5.5" y1="5.5" x2="18.5" y2="18.5"></line>
+                        </svg>
+                        <span>Block in selected</span>
+                    </button>
+                </div>
 
-          <div class="search-container app-scope-search">
-            <svg
-              class="search-icon"
-              width="18"
-              height="18"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <circle cx="9" cy="9" r="7"></circle>
-              <path d="m14 14 4 4"></path>
-            </svg>
-            <input
-              type="text"
-              class="search-input"
-              id="appScopeSearch"
-              placeholder="Search applications..."
-              autocomplete="off"
-            />
-          </div>
+                <div class="search-container app-scope-search">
+                    <svg class="search-icon" width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="9" cy="9" r="7"></circle>
+                        <path d="m14 14 4 4"></path>
+                    </svg>
+                    <input type="text" class="search-input" id="appScopeSearch" placeholder="Search applications..." autocomplete="off" />
+                </div>
 
-          <div class="app-scope-actions" id="appScopeActions">
-            <span class="app-scope-count" id="appScopeCount">0 selected</span>
-            <div class="app-scope-action-btns">
-              <button type="button" class="link-btn" id="appScopeSelectAll">
-                Select all
-              </button>
-              <span class="link-divider">·</span>
-              <button type="button" class="link-btn" id="appScopeClear">
-                Clear
-              </button>
+                <div class="app-scope-actions">
+                    <span class="app-scope-count" id="appScopeCount">0 selected</span>
+                    <div class="app-scope-action-btns">
+                        <button type="button" class="link-btn" id="appScopeSelectAll">Select all</button>
+                        <span class="link-divider">·</span>
+                        <button type="button" class="link-btn" id="appScopeClear">Clear</button>
+                    </div>
+                </div>
             </div>
-          </div>
-        </div>
 
-        <div class="app-list" id="appList"></div>
+            <div class="app-list" id="appList"></div>
 
-        <div class="modal-footer">
-          <button
-            type="button"
-            class="btn btn-secondary"
-            onclick="closeAppScopeModal()"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            onclick="saveAppScope()"
-          >
-            Apply
-          </button>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeAppScopeModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveAppScope()">Apply</button>
+            </div>
         </div>
-      </div>
     </div>
 
     <!-- Toast -->
     <div class="toast-container" id="toastContainer"></div>
 
+    <!-- =========================================================
+         NEW EXPANSION MODAL (premium editor flow)
+         Wired up at the bottom of app.js
+         ========================================================= -->
+    <div class="modal" id="newExpansionModal">
+        <div class="modal-content nx-modal-content">
+            <div class="nx-header">
+                <div class="nx-header-icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M15 4V2m0 20v-2M4 15H2m20 0h-2"></path>
+                        <path d="M12 12.5 9.5 15l4 4 9-9-4-4-2.5 2.5"></path>
+                    </svg>
+                </div>
+                <div class="nx-header-text">
+                    <div class="nx-title">New Expansion</div>
+                    <div class="nx-subtitle">Create a snippet, template, or code block.</div>
+                </div>
+                <button type="button" class="nx-close" id="nxCloseBtn" aria-label="Close">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                        <path d="M18 6L6 18M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="nx-body">
+                <div class="nx-main">
+                    <div class="nx-field">
+                        <label class="form-label" for="nxTokenInput">Token</label>
+                        <input type="text" class="form-input nx-token" id="nxTokenInput" placeholder=";name or ;py" autocomplete="off" maxlength="50" />
+                        <div class="error-message" id="nxTokenError"></div>
+                    </div>
+
+                    <div class="nx-field nx-editor-field">
+                        <label class="form-label" for="nxExpansionInput">Expansion</label>
+                        <div class="nx-editor" id="nxEditorWrap">
+                            <textarea class="nx-textarea"
+                                      id="nxExpansionInput"
+                                      placeholder="Type the expansion text here. Multi-line is fully supported."
+                                      spellcheck="true"></textarea>
+                        </div>
+                        <div class="error-message" id="nxExpansionError"></div>
+                    </div>
+                </div>
+
+                <aside class="nx-side">
+                    <div class="nx-field">
+                        <label class="form-label" for="nxTagsInput">Tags</label>
+                        <input type="text" class="form-input" id="nxTagsInput" placeholder="work, urgent (comma or Enter)" autocomplete="off" />
+                        <div class="chip-preview" id="nxTagsPreview"></div>
+                    </div>
+
+                    <div class="nx-field">
+                        <div class="form-label nx-preview-label">
+                            <span>Preview</span>
+                            <span class="nx-preview-badge" id="nxPreviewBadge">Plain</span>
+                        </div>
+                        <div class="nx-preview" id="nxPreview">
+                            <span class="nx-preview-empty">Your expansion will appear here.</span>
+                        </div>
+                    </div>
+
+                    <div class="nx-tip">
+                        <strong>Tip:</strong> Use <kbd>Enter</kbd> for new lines. All whitespace is preserved.
+                    </div>
+                </aside>
+            </div>
+
+            <div class="modal-footer nx-footer">
+                <button type="button" class="btn btn-secondary" id="nxCancelBtn">Cancel</button>
+                <button type="button" class="btn btn-primary nx-save" id="nxSaveBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    Save Expansion
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="/app.js"></script>
-  </body>
+</body>
 </html>

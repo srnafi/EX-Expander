@@ -17,12 +17,34 @@ const DEFAULT_SETTINGS = {
     emojiSymbol:   ';',
     maxPopup:      7,
     insertTrigger: 'space',
-    popupPosition: 'fixed', // 'cursor' | 'fixed'
     scopeMode:     'block',  // 'allow' | 'block'
     scopeApps:     [],       // array of app ids
 };
 let settings = { ...DEFAULT_SETTINGS };
 
+// Dummy installed-app catalogue. Replace via window.setInstalledApps([...]).
+let installedApps = [
+    { id: 'chrome',     name: 'Google Chrome',       path: 'C:\\Program Files\\Google\\Chrome\\chrome.exe',           color: '#ea4335' },
+    { id: 'firefox',    name: 'Mozilla Firefox',     path: 'C:\\Program Files\\Mozilla Firefox\\firefox.exe',         color: '#ff7139' },
+    { id: 'edge',       name: 'Microsoft Edge',      path: 'C:\\Program Files (x86)\\Microsoft\\Edge\\msedge.exe',    color: '#0078d4' },
+    { id: 'vscode',     name: 'Visual Studio Code',  path: 'C:\\Users\\You\\AppData\\Local\\Programs\\Code\\Code.exe', color: '#007acc' },
+    { id: 'vs',         name: 'Visual Studio 2022',  path: 'C:\\Program Files\\Microsoft Visual Studio\\2022\\devenv.exe', color: '#5c2d91' },
+    { id: 'slack',      name: 'Slack',               path: 'C:\\Users\\You\\AppData\\Local\\slack\\slack.exe',         color: '#4a154b' },
+    { id: 'discord',    name: 'Discord',             path: 'C:\\Users\\You\\AppData\\Local\\Discord\\Discord.exe',     color: '#5865f2' },
+    { id: 'teams',      name: 'Microsoft Teams',     path: 'C:\\Users\\You\\AppData\\Local\\Microsoft\\Teams\\Teams.exe', color: '#6264a7' },
+    { id: 'notion',     name: 'Notion',              path: 'C:\\Users\\You\\AppData\\Local\\Programs\\Notion\\Notion.exe', color: '#111111' },
+    { id: 'obsidian',   name: 'Obsidian',            path: 'C:\\Users\\You\\AppData\\Local\\Obsidian\\Obsidian.exe',   color: '#7c3aed' },
+    { id: 'word',       name: 'Microsoft Word',      path: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE', color: '#2b579a' },
+    { id: 'excel',      name: 'Microsoft Excel',     path: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE',   color: '#217346' },
+    { id: 'outlook',    name: 'Microsoft Outlook',   path: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE', color: '#0072c6' },
+    { id: 'spotify',    name: 'Spotify',             path: 'C:\\Users\\You\\AppData\\Roaming\\Spotify\\Spotify.exe',   color: '#1db954' },
+    { id: 'steam',      name: 'Steam',               path: 'C:\\Program Files (x86)\\Steam\\steam.exe',                color: '#1b2838' },
+    { id: 'figma',      name: 'Figma',               path: 'C:\\Users\\You\\AppData\\Local\\Figma\\Figma.exe',         color: '#a259ff' },
+    { id: 'photoshop',  name: 'Adobe Photoshop',     path: 'C:\\Program Files\\Adobe\\Adobe Photoshop\\Photoshop.exe', color: '#001e36' },
+    { id: 'terminal',   name: 'Windows Terminal',    path: 'C:\\Program Files\\WindowsApps\\Terminal\\WindowsTerminal.exe', color: '#0c0c0c' },
+    { id: 'explorer',   name: 'File Explorer',       path: 'C:\\Windows\\explorer.exe',                                color: '#fbbf24' },
+    { id: 'notepad',    name: 'Notepad',             path: 'C:\\Windows\\System32\\notepad.exe',                       color: '#3b82f6' },
+];
 
 let appScopeDraft = { mode: 'block', apps: new Set() };
 let appScopeQuery = '';
@@ -702,7 +724,7 @@ function closeEditModal() {
 
 function saveEdit() {
     const token = normalizeToken(document.getElementById('editTokenInput').value);
-    const value = document.getElementById('editExpansionInput').value.trim();
+    const value = document.getElementById('editExpansionInput').value;
     const tags  = parseTags(document.getElementById('editTagsInput').value);
 
     let ok = true;
@@ -712,7 +734,7 @@ function saveEdit() {
     showError('editTokenInput', 'editTokenError', tokenErr || '');
     if (tokenErr) ok = false;
 
-    if (!value) {
+    if (!value.trim()) {
         showError('editExpansionInput', 'editExpansionError', 'Expansion is required');
         ok = false;
     } else {
@@ -775,3 +797,128 @@ window.saveEdit         = saveEdit;
 window.openDeleteModal  = openDeleteModal;
 window.closeDeleteModal = closeDeleteModal;
 window.confirmDelete    = confirmDelete;
+// =====================================================
+// =====================================================
+// =========== NEW EXPANSION MODAL (added) =============
+// Premium editor flow that replaces the old inline form.
+// Plain-text only. Multi-line supported.
+// All new code lives below this line — nothing above is
+// modified. Bridges into existing validateToken / postNative.
+// =====================================================
+// =====================================================
+(function () {
+    // ---------- DOM helpers ----------
+    const $ = (id) => document.getElementById(id);
+
+    function nxOpen() {
+        // Reset
+        $('nxTokenInput').value = '';
+        $('nxExpansionInput').value = '';
+        $('nxTagsInput').value = '';
+        nxRenderTags();
+        nxRenderPreview();
+        showError('nxTokenInput', 'nxTokenError', '');
+        showError('nxExpansionInput', 'nxExpansionError', '');
+        $('newExpansionModal').classList.add('active');
+        setTimeout(() => $('nxTokenInput').focus(), 30);
+    }
+
+    function nxClose() {
+        $('newExpansionModal').classList.remove('active');
+    }
+
+    // ---------- Tags ----------
+    function nxRenderTags() {
+        renderChipPreview('nxTagsInput', 'nxTagsPreview');
+    }
+
+    // ---------- Preview ----------
+    function nxRenderPreview() {
+        const v = $('nxExpansionInput').value;
+        const p = $('nxPreview');
+        if (!v) {
+            p.innerHTML = '<span class="nx-preview-empty">Your expansion will appear here.</span>';
+            return;
+        }
+        p.textContent = v;
+    }
+
+    // ---------- Save ----------
+    function nxSave() {
+        const token = normalizeToken($('nxTokenInput').value);
+        const value = $('nxExpansionInput').value;          // preserve newlines
+        const tags  = parseTags($('nxTagsInput').value);
+
+        let ok = true;
+        const tokenErr = validateToken(token);
+        showError('nxTokenInput', 'nxTokenError', tokenErr || '');
+        if (tokenErr) ok = false;
+
+        if (!value.trim()) {
+            showError('nxExpansionInput', 'nxExpansionError', 'Expansion is required');
+            ok = false;
+        } else if (currentSection === 'emoji' && !isEmojiOnly(value.trim())) {
+            showError('nxExpansionInput', 'nxExpansionError',
+                'Emoji section accepts emoji only — switch tab or change content');
+            ok = false;
+        } else {
+            showError('nxExpansionInput', 'nxExpansionError', '');
+        }
+
+        if (!ok) return;
+
+        const type = currentSection;
+        postNative(`insert|${token}|${value}|${tags.join(',')}|${type}`);
+
+        nxClose();
+    }
+
+    // ---------- Wiring ----------
+    function nxInit() {
+        const openBtn = $('openNewExpansionBtn');
+        if (!openBtn) return;
+        openBtn.addEventListener('click', nxOpen);
+        $('nxCloseBtn').addEventListener('click', nxClose);
+        $('nxCancelBtn').addEventListener('click', nxClose);
+        $('nxSaveBtn').addEventListener('click', nxSave);
+
+        // Backdrop click closes
+        $('newExpansionModal').addEventListener('click', (e) => {
+            if (e.target.id === 'newExpansionModal') nxClose();
+        });
+
+        // Token restriction (reuses existing handler)
+        $('nxTokenInput').addEventListener('keydown', restrictInput);
+
+        // Editor input -> preview
+        const ta = $('nxExpansionInput');
+        ta.addEventListener('input', nxRenderPreview);
+
+        // Tags: comma / Enter add chip
+        const tagsEl = $('nxTagsInput');
+        tagsEl.addEventListener('input', nxRenderTags);
+        tagsEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const v = tagsEl.value;
+                if (v && !v.endsWith(',')) tagsEl.value = v + ', ';
+                nxRenderTags();
+            }
+        });
+
+        // Esc closes (in addition to existing global listener)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') nxClose();
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', nxInit);
+    } else {
+        nxInit();
+    }
+
+    // Expose for console / host integration
+    window.openNewExpansionModal  = nxOpen;
+    window.closeNewExpansionModal = nxClose;
+})();
