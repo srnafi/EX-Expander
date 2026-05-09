@@ -382,6 +382,16 @@ function setupEventListeners() {
 
     // ----- Settings -----
     if (settingsBtn) settingsBtn.addEventListener('click', openSettingsModal);
+    const settingsModal = document.getElementById('settingsModal');
+if (settingsModal) {
+    settingsModal.addEventListener('click', (e) => {
+        // If the user clicked the backdrop (the modal wrapper) 
+        // and NOT the content box inside it, close the modal.
+        if (e.target.id === 'settingsModal') {
+            closeSettingsModal();
+        }
+    });
+}
 
     // ----- App Scope: open / search / select-all / clear / row toggle / mode toggle -----
     const openScopeBtn = document.getElementById('openAppScopeBtn');
