@@ -209,8 +209,7 @@ namespace {
                     id         INTEGER PRIMARY KEY AUTOINCREMENT,
                     token      TEXT    NOT NULL UNIQUE COLLATE NOCASE,
                     value      TEXT    NOT NULL,
-                    type       TEXT    NOT NULL DEFAULT 'text'
-                                   CHECK(type IN ('emoji','text')),
+                    type       TEXT    NOT NULL DEFAULT 'text',
                     created_at TEXT    NOT NULL DEFAULT (datetime('now'))
                 );
 

@@ -43,90 +43,95 @@
         </div>
     </header>
 
-    <!-- Section tabs -->
-    <div class="tabs-bar">
-        <div class="tabs-bar-inner">
-            <div class="tabs" role="tablist">
-                <button type="button" class="tab active" data-section="text" role="tab" aria-selected="true">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2"></path>
-                        <path d="M9 20h6M12 4v16"></path>
+    <!-- Main shell: sidebar + content -->
+    <div class="app-shell">
+        <aside class="sidebar" id="sidebar" aria-label="Expansion types">
+            <div class="sidebar-header">
+                <span class="sidebar-title">Types</span>
+                <button type="button" class="icon-btn sidebar-collapse-btn" id="sidebarCollapseBtn" aria-label="Collapse sidebar" title="Collapse sidebar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6"></polyline>
                     </svg>
-                    <span>Text</span>
-                </button>
-                <button type="button" class="tab" data-section="emoji" role="tab" aria-selected="false">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
-                        <line x1="9" y1="9" x2="9.01" y2="9"></line>
-                        <line x1="15" y1="9" x2="15.01" y2="9"></line>
-                    </svg>
-                    <span>Emoji</span>
                 </button>
             </div>
-            <button type="button" class="btn btn-primary new-expansion-btn" id="openNewExpansionBtn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M15 4V2m0 20v-2M8.5 8.5l-1.4-1.4m9.8 9.8 1.4 1.4M4 15H2m20 0h-2M8.5 21.5l-1.4 1.4M16.9 6.6l1.4-1.4"></path>
-                    <path d="M12 12.5 9.5 15l4 4 9-9-4-4-2.5 2.5"></path>
-                </svg>
-                <span>New Expansion</span>
-            </button>
-        </div>
-    </div>
+            <div class="sidebar-list" id="tabsList" role="tablist"></div>
+            <div class="sidebar-footer">
+                <button type="button" class="sidebar-add-btn" id="addTypeBtn" title="Create a new type">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 5v14M5 12h14"></path>
+                    </svg>
+                    <span>New type</span>
+                </button>
+                <button type="button" class="btn btn-primary new-expansion-btn" id="openNewExpansionBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M15 4V2m0 20v-2M8.5 8.5l-1.4-1.4m9.8 9.8 1.4 1.4M4 15H2m20 0h-2M8.5 21.5l-1.4 1.4M16.9 6.6l1.4-1.4"></path>
+                        <path d="M12 12.5 9.5 15l4 4 9-9-4-4-2.5 2.5"></path>
+                    </svg>
+                    <span>New Expansion</span>
+                </button>
+            </div>
+        </aside>
+        <div class="sidebar-resizer" id="sidebarResizer" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" tabindex="0"></div>
+        <button type="button" class="sidebar-expand-btn" id="sidebarExpandBtn" aria-label="Expand sidebar" title="Expand sidebar" hidden>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+        </button>
 
-    <!-- Main Container -->
-    <div class="container">
-        <div class="content">
-            <div class="content-max-width">
-                <!-- Table -->
-                <div class="table-wrapper">
-                    <div class="table-header">
-                        <div>Token</div>
-                        <div>Expansion</div>
-                        <div>Tags</div>
-                        <div></div>
+
+        <!-- Main Container -->
+        <div class="container">
+            <div class="content">
+                <div class="content-max-width">
+                    <!-- Table -->
+                    <div class="table-wrapper">
+                        <div class="table-header">
+                            <div>Token</div>
+                            <div>Expansion</div>
+                            <div>Tags</div>
+                            <div></div>
+                        </div>
+                        <div class="table-body" id="tableBody"></div>
                     </div>
-                    <div class="table-body" id="tableBody"></div>
-                </div>
 
-                <!-- Legacy inline insert form (kept hidden; new modal flow lives at bottom of app.js) -->
-                <div class="insert-form legacy-insert-form" id="insertFormWrapper" hidden aria-hidden="true">
-                    <button type="button" class="form-title" id="insertFormToggle" aria-expanded="true" aria-controls="insertForm">
-                        <span id="insertFormTitle">Add New Text Expansion</span>
-                        <svg class="form-title-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="6 9 12 15 18 9"></polyline>
-                        </svg>
-                    </button>
-                    <form class="form-grid" id="insertForm">
-                        <div class="form-group">
-                            <label class="form-label" for="tokenInput">Token</label>
-                            <input type="text" class="form-input" id="tokenInput" placeholder=";name" autocomplete="off" maxlength="50" />
-                            <div class="error-message" id="tokenError"></div>
-                        </div>
+                    <!-- Legacy inline insert form (kept hidden; new modal flow lives at bottom of app.js) -->
+                    <div class="insert-form legacy-insert-form" id="insertFormWrapper" hidden aria-hidden="true">
+                        <button type="button" class="form-title" id="insertFormToggle" aria-expanded="true" aria-controls="insertForm">
+                            <span id="insertFormTitle">Add New Text Expansion</span>
+                            <svg class="form-title-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        <form class="form-grid" id="insertForm">
+                            <div class="form-group">
+                                <label class="form-label" for="tokenInput">Token</label>
+                                <input type="text" class="form-input" id="tokenInput" placeholder=";name" autocomplete="off" maxlength="50" />
+                                <div class="error-message" id="tokenError"></div>
+                            </div>
 
-                        <div class="form-group">
-                            <label class="form-label" for="expansionInput">Expansion</label>
-                            <input type="text" class="form-input" id="expansionInput" placeholder="Expanded text..." autocomplete="off" />
-                            <div class="error-message" id="expansionError"></div>
-                        </div>
+                            <div class="form-group">
+                                <label class="form-label" for="expansionInput">Expansion</label>
+                                <input type="text" class="form-input" id="expansionInput" placeholder="Expanded text..." autocomplete="off" />
+                                <div class="error-message" id="expansionError"></div>
+                            </div>
 
-                        <div class="form-group">
-                            <label class="form-label" for="tagsInput">Tags</label>
-                            <input type="text" class="form-input" id="tagsInput" placeholder="work, urgent (comma or Enter)" autocomplete="off" />
-                            <div class="chip-preview" id="tagsPreview"></div>
-                            <div class="error-message" id="tagsError"></div>
-                        </div>
+                            <div class="form-group">
+                                <label class="form-label" for="tagsInput">Tags</label>
+                                <input type="text" class="form-input" id="tagsInput" placeholder="work, urgent (comma or Enter)" autocomplete="off" />
+                                <div class="chip-preview" id="tagsPreview"></div>
+                                <div class="error-message" id="tagsError"></div>
+                            </div>
 
-                        <div class="form-buttons">
-                            <button type="submit" class="btn btn-primary" form="insertForm">Insert</button>
-                            <button type="reset" class="btn btn-secondary" form="insertForm">Clear</button>
-                        </div>
-                    </form>
+                            <div class="form-buttons">
+                                <button type="submit" class="btn btn-primary" form="insertForm">Insert</button>
+                                <button type="reset" class="btn btn-secondary" form="insertForm">Clear</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-
+    </div><!-- /.app-shell -->
     <!-- Edit Modal -->
     <div class="modal" id="editModal">
         <div class="modal-content">
@@ -141,6 +146,17 @@
                     <label class="form-label" for="editExpansionInput">Expansion</label>
                     <textarea class="form-input edit-expansion-textarea" id="editExpansionInput" rows="6" autocomplete="off" spellcheck="true"></textarea>
                     <div class="error-message" id="editExpansionError"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="editTypeSelect">Type</label>
+                    <div class="type-picker" data-picker="edit">
+                        <select class="form-input type-select" id="editTypeSelect"></select>
+                        <div class="type-create-row" id="editTypeCreateRow" hidden>
+                            <input type="text" class="form-input type-create-input" id="editTypeCreateInput" placeholder="Type name (max 15 chars)" maxlength="15" />
+                            <button type="button" class="btn btn-secondary btn-compact" data-create-type="edit">Create</button>
+                        </div>
+                        <div class="error-message" id="editTypeError"></div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="editTagsInput">Tags</label>
@@ -342,6 +358,18 @@
                 </div>
 
                 <aside class="nx-side">
+                    <div class="nx-field">
+                        <label class="form-label" for="nxTypeSelect">Type</label>
+                        <div class="type-picker" data-picker="nx">
+                            <select class="form-input type-select" id="nxTypeSelect"></select>
+                            <div class="type-create-row" id="nxTypeCreateRow" hidden>
+                                <input type="text" class="form-input type-create-input" id="nxTypeCreateInput" placeholder="Type name (max 15 chars)" maxlength="15" />
+                                <button type="button" class="btn btn-secondary btn-compact" data-create-type="nx">Create</button>
+                            </div>
+                            <div class="error-message" id="nxTypeError"></div>
+                        </div>
+                    </div>
+
                     <div class="nx-field">
                         <label class="form-label" for="nxTagsInput">Tags</label>
                         <input type="text" class="form-input" id="nxTagsInput" placeholder="work, urgent (comma or Enter)" autocomplete="off" />

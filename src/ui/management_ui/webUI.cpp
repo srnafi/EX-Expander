@@ -38,4 +38,5 @@ void OpenWebUI(HINSTANCE hInstance)
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+    PostQuitMessage(0);
 }

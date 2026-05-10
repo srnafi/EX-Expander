@@ -190,7 +190,7 @@ LRESULT CALLBACK WebUIProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
     case WM_CLOSE:
         // Close the window cleanly
-        PostQuitMessage(0);
+        DestroyWindow(hwnd);
         return 0;
 
     case WM_DESTROY:
@@ -202,6 +202,7 @@ LRESULT CALLBACK WebUIProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             g_webview = nullptr;
         }
         g_uiWindow = nullptr;
+        PostQuitMessage(0);
         return 0;
     }
 

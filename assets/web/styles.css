@@ -1823,3 +1823,586 @@ body {
     padding: 0.7rem 0.85rem;
     white-space: pre-wrap;
 }
+
+/* ===== CUSTOM TYPES ===== */
+.tabs-bar-inner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.tabs {
+    flex-wrap: wrap;
+    max-width: 100%;
+}
+
+.tab[data-section] {
+    position: relative;
+    padding-right: 0.95rem;
+}
+
+.tab.has-close {
+    padding-right: 2rem;
+}
+
+.tab .tab-color-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--tab-color, var(--primary));
+    flex-shrink: 0;
+}
+
+.tab .tab-close {
+    position: absolute;
+    right: 0.4rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: currentColor;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease;
+    font-family: inherit;
+}
+
+.tab:hover .tab-close,
+.tab.active .tab-close {
+    opacity: 0.7;
+}
+
+.tab .tab-close:hover {
+    opacity: 1 !important;
+    background: rgba(239, 68, 68, 0.18);
+    color: #dc2626;
+}
+
+.tab.active .tab-close:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.25);
+}
+
+.tab-add {
+    border: 1px dashed var(--border-strong) !important;
+    color: var(--text-tertiary) !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+    .tab-add:hover {
+        color: var(--primary) !important;
+        border-color: var(--primary-light) !important;
+        background: var(--bg-secondary) !important;
+    }
+
+/* Type picker (modal) */
+.type-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.type-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a91a3' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.85rem center;
+    padding-right: 2.25rem;
+    cursor: pointer;
+}
+
+.type-create-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+    .type-create-row[hidden] {
+        display: none !important;
+    }
+
+    .type-create-row .type-create-input {
+        flex: 1;
+    }
+
+.btn-compact {
+    padding: 0.5rem 0.85rem;
+    font-size: 0.8rem;
+}
+
+/* ===== TABS: SINGLE-ROW SCROLL + OVERFLOW ===== */
+.tabs-bar-inner {
+    flex-wrap: nowrap;
+}
+
+.tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    flex: 1 1 auto;
+    min-width: 0;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-right: 0.25rem;
+}
+
+    .tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+.tab[data-section] {
+    flex-shrink: 0;
+}
+
+.tabs-overflow {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-shrink: 0;
+}
+
+.tabs-scroll-btn {
+    width: 2rem;
+    height: 2rem;
+}
+
+    .tabs-scroll-btn:disabled {
+        opacity: 0.35;
+        cursor: default;
+        transform: none;
+        box-shadow: var(--shadow-sm);
+    }
+
+        .tabs-scroll-btn:disabled:hover {
+            color: var(--text-secondary);
+            border-color: var(--border);
+            transform: none;
+        }
+
+.tabs-browse-btn {
+    width: auto;
+    padding: 0 0.6rem;
+    gap: 0.35rem;
+}
+
+.tabs-browse-count {
+    display: inline-block;
+    min-width: 1.1rem;
+    padding: 0 0.3rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.1rem;
+    background: var(--gradient-primary);
+    color: #fff;
+    border-radius: 999px;
+    text-align: center;
+}
+
+.tabs-popover-wrap {
+    position: relative;
+}
+
+.tabs-popover {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    width: 18rem;
+    max-width: calc(100vw - 2rem);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideUp 0.18s ease-out;
+}
+
+.tabs-popover-header {
+    padding: 0.65rem 0.65rem 0.5rem;
+}
+
+.tabs-popover-search {
+    height: 2.1rem;
+    padding: 0.4rem 0.65rem;
+    font-size: 0.85rem;
+}
+
+.tabs-popover-list {
+    max-height: 18rem;
+    overflow-y: auto;
+    padding: 0 0.35rem 0.35rem;
+}
+
+    .tabs-popover-list::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .tabs-popover-list::-webkit-scrollbar-thumb {
+        background: var(--border-strong);
+        border-radius: 3px;
+    }
+
+.tp-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    transition: background 0.12s ease;
+}
+
+    .tp-row:hover {
+        background: var(--bg-secondary);
+    }
+
+    .tp-row.active {
+        background: var(--bg-secondary);
+        color: var(--primary);
+        font-weight: 600;
+    }
+
+.tp-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--tp-color, var(--primary));
+    flex-shrink: 0;
+}
+
+.tp-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tp-count {
+    font-size: 0.72rem;
+    color: var(--text-tertiary);
+    font-variant-numeric: tabular-nums;
+}
+
+.tp-del {
+    width: 1.4rem;
+    height: 1.4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+    .tp-del:hover {
+        background: rgba(239,68,68,0.18);
+        color: #dc2626;
+    }
+
+.tp-empty {
+    padding: 1rem;
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 0.85rem;
+}
+
+.tabs-popover-footer {
+    border-top: 1px solid var(--border);
+    padding: 0.55rem;
+    display: flex;
+    justify-content: stretch;
+}
+
+    .tabs-popover-footer .btn {
+        width: 100%;
+    }
+
+/* hide the static "New type" tab label trigger when collapsed (we keep + as compact) */
+.tab-add {
+    padding: 0.5rem 0.65rem;
+}
+
+/* ===== APP SHELL: SIDEBAR + CONTENT ===== */
+.tabs-bar {
+    display: none !important;
+}
+
+.app-shell {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.sidebar {
+    width: var(--sidebar-w, 240px);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+    border-right: 1px solid var(--border);
+    min-height: 0;
+    overflow: hidden;
+    transition: width 0.2s ease;
+}
+
+    .sidebar.collapsed {
+        width: 0;
+        border-right: 0;
+        overflow: hidden;
+    }
+
+.sidebar-header {
+    flex-shrink: 0;
+    padding: 0.75rem 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-tertiary);
+}
+
+.sidebar-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+}
+
+.sidebar-collapse-btn {
+    width: 1.8rem;
+    height: 1.8rem;
+}
+
+.sidebar-list {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0.5rem 0.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+    .sidebar-list::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .sidebar-list::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .sidebar-list::-webkit-scrollbar-thumb {
+        background: var(--border-strong);
+        border-radius: 3px;
+    }
+
+        .sidebar-list::-webkit-scrollbar-thumb:hover {
+            background: var(--text-tertiary);
+        }
+
+.side-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: var(--radius);
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    font-family: inherit;
+    transition: background 0.12s ease, color 0.12s ease;
+    position: relative;
+}
+
+    .side-tab:hover {
+        background: var(--bg-secondary);
+        color: var(--primary);
+    }
+
+    .side-tab.active {
+        background: var(--gradient-primary);
+        color: #fff;
+        box-shadow: 0 2px 6px -2px rgba(8, 145, 178, 0.45);
+        font-weight: 600;
+    }
+
+    .side-tab .side-tab-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--side-color, var(--primary));
+        flex-shrink: 0;
+        box-shadow: 0 0 0 2px rgba(255,255,255,0.0);
+    }
+
+    .side-tab.active .side-tab-dot {
+        background: #fff;
+    }
+
+    .side-tab .side-tab-name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .side-tab .side-tab-count {
+        font-size: 0.7rem;
+        font-variant-numeric: tabular-nums;
+        color: var(--text-tertiary);
+        background: var(--bg-secondary);
+        padding: 0.05rem 0.4rem;
+        border-radius: 999px;
+    }
+
+    .side-tab.active .side-tab-count {
+        background: rgba(255,255,255,0.22);
+        color: #fff;
+    }
+
+    .side-tab .side-tab-icon {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+        opacity: 0.8;
+    }
+
+.sidebar-footer {
+    flex-shrink: 0;
+    padding: 0.6rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sidebar-add-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.7rem;
+    border: 1px dashed var(--border-strong);
+    background: transparent;
+    color: var(--text-secondary);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 0.825rem;
+    font-weight: 600;
+    font-family: inherit;
+    transition: var(--transition);
+}
+
+    .sidebar-add-btn:hover {
+        color: var(--primary);
+        border-color: var(--primary-light);
+        background: var(--bg-secondary);
+    }
+
+.sidebar-footer .new-expansion-btn {
+    width: 100%;
+}
+
+/* ----- Resizer ----- */
+.sidebar-resizer {
+    flex-shrink: 0;
+    width: 5px;
+    margin-left: -2px;
+    cursor: col-resize;
+    background: transparent;
+    transition: background 0.15s ease;
+    position: relative;
+    z-index: 5;
+}
+
+    .sidebar-resizer:hover,
+    .sidebar-resizer.dragging {
+        background: var(--primary-light);
+    }
+
+.sidebar.collapsed + .sidebar-resizer {
+    display: none;
+}
+
+body.resizing-sidebar {
+    cursor: col-resize !important;
+    user-select: none;
+}
+
+    body.resizing-sidebar * {
+        cursor: col-resize !important;
+    }
+
+/* ----- Floating expand button when sidebar is collapsed ----- */
+.sidebar-expand-btn {
+    position: absolute;
+    left: 0.6rem;
+    top: 0.6rem;
+    width: 2rem;
+    height: 2rem;
+    z-index: 6;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    transition: var(--transition);
+}
+
+    .sidebar-expand-btn:hover {
+        color: var(--primary);
+        border-color: var(--primary-light);
+    }
+
+    .sidebar-expand-btn[hidden] {
+        display: none !important;
+    }
+
+/* Make .container fill remaining row space */
+.app-shell .container {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Mobile: collapse sidebar by default */
+@media (max-width: 768px) {
+    .sidebar {
+        width: var(--sidebar-w, 200px);
+    }
+
+        .sidebar.collapsed {
+            width: 0;
+        }
+}

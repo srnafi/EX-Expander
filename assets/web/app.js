@@ -22,29 +22,82 @@ const DEFAULT_SETTINGS = {
 };
 let settings = { ...DEFAULT_SETTINGS };
 
-// Dummy installed-app catalogue. Replace via window.setInstalledApps([...]).
-let installedApps = [
-    { id: 'chrome',     name: 'Google Chrome',       path: 'C:\\Program Files\\Google\\Chrome\\chrome.exe',           color: '#ea4335' },
-    { id: 'firefox',    name: 'Mozilla Firefox',     path: 'C:\\Program Files\\Mozilla Firefox\\firefox.exe',         color: '#ff7139' },
-    { id: 'edge',       name: 'Microsoft Edge',      path: 'C:\\Program Files (x86)\\Microsoft\\Edge\\msedge.exe',    color: '#0078d4' },
-    { id: 'vscode',     name: 'Visual Studio Code',  path: 'C:\\Users\\You\\AppData\\Local\\Programs\\Code\\Code.exe', color: '#007acc' },
-    { id: 'vs',         name: 'Visual Studio 2022',  path: 'C:\\Program Files\\Microsoft Visual Studio\\2022\\devenv.exe', color: '#5c2d91' },
-    { id: 'slack',      name: 'Slack',               path: 'C:\\Users\\You\\AppData\\Local\\slack\\slack.exe',         color: '#4a154b' },
-    { id: 'discord',    name: 'Discord',             path: 'C:\\Users\\You\\AppData\\Local\\Discord\\Discord.exe',     color: '#5865f2' },
-    { id: 'teams',      name: 'Microsoft Teams',     path: 'C:\\Users\\You\\AppData\\Local\\Microsoft\\Teams\\Teams.exe', color: '#6264a7' },
-    { id: 'notion',     name: 'Notion',              path: 'C:\\Users\\You\\AppData\\Local\\Programs\\Notion\\Notion.exe', color: '#111111' },
-    { id: 'obsidian',   name: 'Obsidian',            path: 'C:\\Users\\You\\AppData\\Local\\Obsidian\\Obsidian.exe',   color: '#7c3aed' },
-    { id: 'word',       name: 'Microsoft Word',      path: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE', color: '#2b579a' },
-    { id: 'excel',      name: 'Microsoft Excel',     path: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE',   color: '#217346' },
-    { id: 'outlook',    name: 'Microsoft Outlook',   path: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE', color: '#0072c6' },
-    { id: 'spotify',    name: 'Spotify',             path: 'C:\\Users\\You\\AppData\\Roaming\\Spotify\\Spotify.exe',   color: '#1db954' },
-    { id: 'steam',      name: 'Steam',               path: 'C:\\Program Files (x86)\\Steam\\steam.exe',                color: '#1b2838' },
-    { id: 'figma',      name: 'Figma',               path: 'C:\\Users\\You\\AppData\\Local\\Figma\\Figma.exe',         color: '#a259ff' },
-    { id: 'photoshop',  name: 'Adobe Photoshop',     path: 'C:\\Program Files\\Adobe\\Adobe Photoshop\\Photoshop.exe', color: '#001e36' },
-    { id: 'terminal',   name: 'Windows Terminal',    path: 'C:\\Program Files\\WindowsApps\\Terminal\\WindowsTerminal.exe', color: '#0c0c0c' },
-    { id: 'explorer',   name: 'File Explorer',       path: 'C:\\Windows\\explorer.exe',                                color: '#fbbf24' },
-    { id: 'notepad',    name: 'Notepad',             path: 'C:\\Windows\\System32\\notepad.exe',                       color: '#3b82f6' },
+// User-defined custom types: [{ id, name, color }]
+const BUILTIN_TYPES = ['text', 'emoji'];
+const TYPE_NAME_MAX = 15;
+const TYPE_PALETTE = [
+    '#0891b2','#7c3aed','#10b981','#f59e0b','#ef4444',
+    '#ec4899','#3b82f6','#84cc16','#f97316','#6366f1',
+    '#14b8a6','#a855f7'
 ];
+let customTypes = [];
+
+function loadCustomTypes() {
+    try {
+        const raw = localStorage.getItem('customTypes');
+        if (raw) customTypes = JSON.parse(raw) || [];
+    } catch (e) {}
+}
+function persistCustomTypes() {
+    try { localStorage.setItem('customTypes', JSON.stringify(customTypes)); } catch (e) {}
+    postNative('types|' + JSON.stringify(customTypes));
+}
+function slugifyType(name) {
+    return name.trim().toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 20) || 'type';
+}
+function colorForType(id) {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return TYPE_PALETTE[h % TYPE_PALETTE.length];
+}
+function findType(id) {
+    if (id === 'text' || id === 'emoji') return { id, name: id === 'text' ? 'Text' : 'Emoji', builtin: true };
+    return customTypes.find(t => t.id === id) || null;
+}
+function typeLabel(id) {
+    const t = findType(id);
+    return t ? t.name : id;
+}
+// Returns error message or null
+function validateNewTypeName(name) {
+    name = (name || '').trim();
+    if (!name) return 'Name cannot be empty';
+    if (name.length > TYPE_NAME_MAX) return `Max ${TYPE_NAME_MAX} characters`;
+    const lower = name.toLowerCase();
+    if (lower === 'text' || lower === 'emoji') return 'Reserved name';
+    if (customTypes.some(t => t.name.toLowerCase() === lower)) return 'Type already exists';
+    return null;
+}
+function createCustomType(name) {
+    const err = validateNewTypeName(name);
+    if (err) return { error: err };
+    name = name.trim();
+    let baseId = 'ct_' + slugifyType(name);
+    let id = baseId, n = 2;
+    while (customTypes.some(t => t.id === id)) id = baseId + '-' + (n++);
+    const t = { id, name, color: colorForType(id) };
+    customTypes.push(t);
+    persistCustomTypes();
+    renderTabs();
+    return { type: t };
+}
+function deleteCustomType(id) {
+    const idx = customTypes.findIndex(t => t.id === id);
+    if (idx < 0) return;
+    customTypes.splice(idx, 1);
+    persistCustomTypes();
+    // Reassign any expansions of that type back to 'text'
+    let moved = 0;
+    expansions.forEach(e => {
+        if (e.type === id) { e.type = 'text'; moved++; postNative(`update|${e.id}|${e.token}|${e.expansion}|${(e.tags||[]).join(',')}|text`); }
+    });
+    if (currentSection === id) currentSection = 'text';
+    renderTabs();
+    applyFilter();
+}
 
 let appScopeDraft = { mode: 'block', apps: new Set() };
 let appScopeQuery = '';
@@ -140,6 +193,7 @@ function applyFilter() {
         );
     });
     renderTable();
+    if (typeof renderTabs === 'function') renderTabs();
 }
 
 // =====================================================
@@ -347,11 +401,47 @@ window.saveAppScope       = saveAppScope;
 // =====================================================
 document.addEventListener('DOMContentLoaded', () => {
     loadSettings();
+    loadCustomTypes();
+    renderTabs();
     setupEventListeners();
+    setupTypeUI();
     syncSettingsUI();
     updateAppScopeSummary();
     postNative('getAll');
 });
+
+// =====================================================
+// ===== DYNAMIC TABS (built-in + custom types) =====
+// =====================================================
+function renderTabs() {
+    const list = document.getElementById('tabsList');
+    if (!list) return;
+
+    const all = [
+        { id: 'text',  name: 'Text',  color: 'var(--primary)', icon: 'text' },
+        { id: 'emoji', name: 'Emoji', color: 'var(--primary)', icon: 'emoji' },
+        ...customTypes.map(t => ({ id: t.id, name: t.name, color: t.color, icon: 'folder' })),
+    ];
+
+    list.innerHTML = all.map(t => {
+        const count = expansions.filter(e => e.type === t.id).length;
+        const active = t.id === currentSection ? ' active' : '';
+        const icon = t.icon === 'text'
+            ? `<svg class="side-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2"/><path d="M9 20h6M12 4v16"/></svg>`
+            : t.icon === 'emoji'
+            ? `<svg class="side-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>`
+            : `<span class="side-tab-dot" style="--side-color:${t.color}" aria-hidden="true"></span>`;
+        return `
+            <button type="button" class="side-tab${active}" data-section="${escapeHtml(t.id)}" role="tab" aria-selected="${active ? 'true' : 'false'}">
+                ${icon}
+                <span class="side-tab-name">${escapeHtml(t.name)}</span>
+                <span class="side-tab-count">${count}</span>
+            </button>
+        `;
+    }).join('');
+}
+
+
 
 // =====================================================
 // ===== EVENTS =====
@@ -382,16 +472,6 @@ function setupEventListeners() {
 
     // ----- Settings -----
     if (settingsBtn) settingsBtn.addEventListener('click', openSettingsModal);
-    const settingsModal = document.getElementById('settingsModal');
-if (settingsModal) {
-    settingsModal.addEventListener('click', (e) => {
-        // If the user clicked the backdrop (the modal wrapper) 
-        // and NOT the content box inside it, close the modal.
-        if (e.target.id === 'settingsModal') {
-            closeSettingsModal();
-        }
-    });
-}
 
     // ----- App Scope: open / search / select-all / clear / row toggle / mode toggle -----
     const openScopeBtn = document.getElementById('openAppScopeBtn');
@@ -447,10 +527,31 @@ if (settingsModal) {
         });
     }
 
-    // ----- Section Tabs -----
-    document.querySelectorAll('.tab').forEach(t => {
-        t.addEventListener('click', () => switchSection(t.dataset.section));
-    });
+    // ----- Section Tabs (delegated for dynamic custom tabs) -----
+    const tabsList = document.getElementById('tabsList');
+    if (tabsList) {
+        tabsList.addEventListener('click', e => {
+            const tab = e.target.closest('[data-section]');
+            if (tab) switchSection(tab.dataset.section);
+        });
+    }
+
+    // Add-type button (now in sidebar footer, outside tabsList)
+    const addTypeBtn = document.getElementById('addTypeBtn');
+    if (addTypeBtn) {
+        addTypeBtn.addEventListener('click', () => {
+            const name = prompt(`New type name (max ${TYPE_NAME_MAX} chars):`);
+            if (name == null) return;
+            const res = createCustomType(name);
+            if (res.error) { alert(res.error); return; }
+            switchSection(res.type.id);
+        });
+    }
+
+    // ----- Sidebar collapse / expand / resize -----
+    setupSidebar();
+
+
 
     // ----- Tags: Enter or comma adds a chip; live chip preview -----
     [['tagsInput', 'tagsPreview'], ['editTagsInput', 'editTagsPreview']].forEach(
@@ -546,21 +647,25 @@ function restrictInput(e) {
 // =====================================================
 function switchSection(section) {
     if (section === currentSection) return;
+    if (!findType(section)) return;
     currentSection = section;
+    renderTabs();
 
-    document.querySelectorAll('.tab').forEach(t => {
-        const active = t.dataset.section === section;
-        t.classList.toggle('active', active);
-        t.setAttribute('aria-selected', String(active));
-    });
-
-    document.getElementById('insertFormTitle').textContent =
-        section === 'emoji' ? 'Add New Emoji Expansion' : 'Add New Text Expansion';
-    document.getElementById('expansionInput').placeholder =
-        section === 'emoji' ? 'Emoji only, e.g. 😀' : 'Expanded text...';
+    const titleEl = document.getElementById('insertFormTitle');
+    if (titleEl) titleEl.textContent = `Add New ${typeLabel(section)} Expansion`;
+    const expIn = document.getElementById('expansionInput');
+    if (expIn) expIn.placeholder = section === 'emoji' ? 'Emoji only, e.g. 😀' : 'Expanded text...';
 
     applyFilter();
+
+    // Scroll active sidebar tab into view
+    const active = document.querySelector('#tabsList .side-tab.active');
+    if (active && active.scrollIntoView) {
+        active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
 }
+
+
 
 // =====================================================
 // ===== TAGS =====
@@ -611,19 +716,22 @@ function renderTable() {
 
     if (filteredExpansions.length === 0) {
         const isEmoji = currentSection === 'emoji';
+        const label = typeLabel(currentSection);
+        const icon = isEmoji ? '😶' : (currentSection === 'text' ? '📭' : '🗂️');
         tableBody.innerHTML = `
             <div class="empty-state">
-                <div class="empty-icon">${isEmoji ? '😶' : '📭'}</div>
-                <div class="empty-title">No ${isEmoji ? 'Emoji' : 'Text'} Expansions Found</div>
+                <div class="empty-icon">${icon}</div>
+                <div class="empty-title">No ${escapeHtml(label)} Expansions Found</div>
                 <div class="empty-text">${
                     currentQuery
                         ? 'Try a different search.'
-                        : 'Create your first ' + (isEmoji ? 'emoji' : 'text') + ' expansion below.'
+                        : 'Create your first ' + escapeHtml(label.toLowerCase()) + ' expansion with the New Expansion button.'
                 }</div>
             </div>
         `;
         return;
     }
+
 
     tableBody.innerHTML = filteredExpansions.map(item => `
         <div class="table-row" data-id="${item.id}">
@@ -723,6 +831,9 @@ function openEditModal(id) {
     document.getElementById('editTokenInput').value     = item.token;
     document.getElementById('editExpansionInput').value = item.expansion;
     document.getElementById('editTagsInput').value      = (item.tags || []).join(', ');
+    populateTypeSelect('editTypeSelect', item.type || classify(item.expansion));
+    hideTypeCreateRow('edit');
+    showError('editTypeSelect', 'editTypeError', '');
     renderChipPreview('editTagsInput', 'editTagsPreview');
     document.getElementById('editModal').classList.add('active');
 }
@@ -736,10 +847,10 @@ function saveEdit() {
     const token = normalizeToken(document.getElementById('editTokenInput').value);
     const value = document.getElementById('editExpansionInput').value;
     const tags  = parseTags(document.getElementById('editTagsInput').value);
+    const typeSel = document.getElementById('editTypeSelect').value;
 
     let ok = true;
 
-    // Validate token, passing the current ID so duplicate check skips itself
     const tokenErr = validateToken(token, editingId);
     showError('editTokenInput', 'editTokenError', tokenErr || '');
     if (tokenErr) ok = false;
@@ -747,16 +858,33 @@ function saveEdit() {
     if (!value.trim()) {
         showError('editExpansionInput', 'editExpansionError', 'Expansion is required');
         ok = false;
+    } else if (typeSel === 'emoji' && !isEmojiOnly(value.trim())) {
+        showError('editExpansionInput', 'editExpansionError',
+            'Emoji type accepts emoji only — change content or pick a different type');
+        ok = false;
     } else {
         showError('editExpansionInput', 'editExpansionError', '');
     }
 
+    if (!findType(typeSel)) {
+        showError('editTypeSelect', 'editTypeError', 'Pick a type');
+        ok = false;
+    } else {
+        showError('editTypeSelect', 'editTypeError', '');
+    }
+
     if (!ok) return;
 
-    const type = classify(value);
-    postNative(`update|${editingId}|${token}|${value}|${tags.join(',')}|${type}`);
+    postNative(`update|${editingId}|${token}|${value}|${tags.join(',')}|${typeSel}`);
+    // Local update so UI reflects type change immediately if native echo is missing
+    const idx = expansions.findIndex(e => e.id === editingId);
+    if (idx >= 0) {
+        expansions[idx] = { ...expansions[idx], token, expansion: value, tags, type: typeSel };
+        applyFilter();
+    }
     closeEditModal();
 }
+
 
 // =====================================================
 // ===== DELETE =====
@@ -807,6 +935,66 @@ window.saveEdit         = saveEdit;
 window.openDeleteModal  = openDeleteModal;
 window.closeDeleteModal = closeDeleteModal;
 window.confirmDelete    = confirmDelete;
+
+// =====================================================
+// ===== TYPE PICKER (modal selects) =====
+// =====================================================
+const NEW_TYPE_SENTINEL = '__new_type__';
+
+function populateTypeSelect(selectId, currentType) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    const opts = [
+        { value: 'text',  label: 'Text' },
+        { value: 'emoji', label: 'Emoji' },
+        ...customTypes.map(t => ({ value: t.id, label: t.name })),
+        { value: NEW_TYPE_SENTINEL, label: '+ New type…' },
+    ];
+    sel.innerHTML = opts.map(o =>
+        `<option value="${escapeHtml(o.value)}"${o.value === currentType ? ' selected' : ''}>${escapeHtml(o.label)}</option>`
+    ).join('');
+}
+
+function hideTypeCreateRow(prefix) {
+    const row = document.getElementById(prefix + 'TypeCreateRow');
+    const input = document.getElementById(prefix + 'TypeCreateInput');
+    if (row) row.hidden = true;
+    if (input) input.value = '';
+    showError(prefix + 'TypeSelect', prefix + 'TypeError', '');
+}
+
+function setupTypeUI() {
+    ['nx', 'edit'].forEach(prefix => {
+        const sel = document.getElementById(prefix + 'TypeSelect');
+        if (!sel) return;
+        sel.addEventListener('change', () => {
+            const row = document.getElementById(prefix + 'TypeCreateRow');
+            if (sel.value === NEW_TYPE_SENTINEL) {
+                row.hidden = false;
+                document.getElementById(prefix + 'TypeCreateInput').focus();
+            } else {
+                row.hidden = true;
+            }
+        });
+        const createInput = document.getElementById(prefix + 'TypeCreateInput');
+        const handleCreate = () => {
+            const name = createInput.value;
+            const res = createCustomType(name);
+            if (res.error) {
+                showError(prefix + 'TypeSelect', prefix + 'TypeError', res.error);
+                return;
+            }
+            populateTypeSelect(prefix + 'TypeSelect', res.type.id);
+            hideTypeCreateRow(prefix);
+        };
+        createInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); handleCreate(); }
+        });
+        const btn = document.querySelector(`[data-create-type="${prefix}"]`);
+        if (btn) btn.addEventListener('click', handleCreate);
+    });
+}
+
 // =====================================================
 // =====================================================
 // =========== NEW EXPANSION MODAL (added) =============
@@ -825,6 +1013,11 @@ window.confirmDelete    = confirmDelete;
         $('nxTokenInput').value = '';
         $('nxExpansionInput').value = '';
         $('nxTagsInput').value = '';
+        // Default the type to whatever section the user is currently viewing
+        const initialType = (currentSection === 'text' || currentSection === 'emoji' || findType(currentSection))
+            ? currentSection : 'text';
+        populateTypeSelect('nxTypeSelect', initialType);
+        hideTypeCreateRow('nx');
         nxRenderTags();
         nxRenderPreview();
         showError('nxTokenInput', 'nxTokenError', '');
@@ -832,6 +1025,7 @@ window.confirmDelete    = confirmDelete;
         $('newExpansionModal').classList.add('active');
         setTimeout(() => $('nxTokenInput').focus(), 30);
     }
+
 
     function nxClose() {
         $('newExpansionModal').classList.remove('active');
@@ -858,18 +1052,26 @@ window.confirmDelete    = confirmDelete;
         const token = normalizeToken($('nxTokenInput').value);
         const value = $('nxExpansionInput').value;          // preserve newlines
         const tags  = parseTags($('nxTagsInput').value);
+        const type  = $('nxTypeSelect').value;
 
         let ok = true;
         const tokenErr = validateToken(token);
         showError('nxTokenInput', 'nxTokenError', tokenErr || '');
         if (tokenErr) ok = false;
 
+        if (!findType(type)) {
+            showError('nxTypeSelect', 'nxTypeError', 'Pick a type (or create one)');
+            ok = false;
+        } else {
+            showError('nxTypeSelect', 'nxTypeError', '');
+        }
+
         if (!value.trim()) {
             showError('nxExpansionInput', 'nxExpansionError', 'Expansion is required');
             ok = false;
-        } else if (currentSection === 'emoji' && !isEmojiOnly(value.trim())) {
+        } else if (type === 'emoji' && !isEmojiOnly(value.trim())) {
             showError('nxExpansionInput', 'nxExpansionError',
-                'Emoji section accepts emoji only — switch tab or change content');
+                'Emoji type accepts emoji only — change content or pick a different type');
             ok = false;
         } else {
             showError('nxExpansionInput', 'nxExpansionError', '');
@@ -877,8 +1079,17 @@ window.confirmDelete    = confirmDelete;
 
         if (!ok) return;
 
-        const type = currentSection;
         postNative(`insert|${token}|${value}|${tags.join(',')}|${type}`);
+
+        // Optimistic local insert so user sees their new expansion immediately
+        const tempId = Date.now();
+        expansions.push({ id: tempId, token, expansion: value, tags, type });
+        // Switch view to the type just created in, so they see it
+        if (currentSection !== type) {
+            currentSection = type;
+            renderTabs();
+        }
+        applyFilter();
 
         nxClose();
     }
@@ -932,3 +1143,115 @@ window.confirmDelete    = confirmDelete;
     window.openNewExpansionModal  = nxOpen;
     window.closeNewExpansionModal = nxClose;
 })();
+
+// =====================================================
+// ===== SIDEBAR: collapse + resize =====
+// =====================================================
+const SIDEBAR_MIN = 180;
+const SIDEBAR_MAX = 480;
+const SIDEBAR_DEFAULT = 240;
+
+function loadSidebarWidth() {
+    let w = SIDEBAR_DEFAULT;
+    let collapsed = false;
+    try {
+        const raw = localStorage.getItem('sidebarWidth');
+        if (raw) w = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, parseInt(raw, 10) || SIDEBAR_DEFAULT));
+        collapsed = localStorage.getItem('sidebarCollapsed') === '1';
+    } catch (e) {}
+    applySidebarWidth(w);
+    setSidebarCollapsed(collapsed, /*persist*/ false);
+}
+
+function applySidebarWidth(w) {
+    document.documentElement.style.setProperty('--sidebar-w', w + 'px');
+}
+
+function setSidebarCollapsed(collapsed, persist = true) {
+    const sb = document.getElementById('sidebar');
+    const expandBtn = document.getElementById('sidebarExpandBtn');
+    if (!sb) return;
+    sb.classList.toggle('collapsed', collapsed);
+    if (expandBtn) expandBtn.hidden = !collapsed;
+    if (persist) {
+        try { localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0'); } catch (e) {}
+    }
+}
+
+function setupSidebar() {
+    loadSidebarWidth();
+
+    const collapseBtn = document.getElementById('sidebarCollapseBtn');
+    const expandBtn   = document.getElementById('sidebarExpandBtn');
+    const resizer     = document.getElementById('sidebarResizer');
+
+    if (collapseBtn) collapseBtn.addEventListener('click', () => setSidebarCollapsed(true));
+    if (expandBtn)   expandBtn.addEventListener('click', () => setSidebarCollapsed(false));
+
+    // ----- Drag resize -----
+    if (resizer) {
+        let dragging = false;
+        let startX = 0;
+        let startW = SIDEBAR_DEFAULT;
+
+        const onMove = (e) => {
+            if (!dragging) return;
+            const x = e.touches ? e.touches[0].clientX : e.clientX;
+            const dx = x - startX;
+            const next = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, startW + dx));
+            applySidebarWidth(next);
+        };
+        const onUp = () => {
+            if (!dragging) return;
+            dragging = false;
+            document.body.classList.remove('resizing-sidebar');
+            resizer.classList.remove('dragging');
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+            window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('touchend', onUp);
+            const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10);
+            try { localStorage.setItem('sidebarWidth', String(cur)); } catch (e) {}
+        };
+        const onDown = (e) => {
+            const sb = document.getElementById('sidebar');
+            if (!sb || sb.classList.contains('collapsed')) return;
+            dragging = true;
+            startX = e.touches ? e.touches[0].clientX : e.clientX;
+            startW = sb.getBoundingClientRect().width;
+            document.body.classList.add('resizing-sidebar');
+            resizer.classList.add('dragging');
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+            window.addEventListener('touchmove', onMove, { passive: false });
+            window.addEventListener('touchend', onUp);
+            e.preventDefault();
+        };
+        resizer.addEventListener('mousedown', onDown);
+        resizer.addEventListener('touchstart', onDown, { passive: false });
+
+        // Keyboard support
+        resizer.addEventListener('keydown', (e) => {
+            const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10) || SIDEBAR_DEFAULT;
+            const step = e.shiftKey ? 24 : 8;
+            if (e.key === 'ArrowLeft') {
+                const next = Math.max(SIDEBAR_MIN, cur - step);
+                applySidebarWidth(next);
+                try { localStorage.setItem('sidebarWidth', String(next)); } catch (err) {}
+                e.preventDefault();
+            } else if (e.key === 'ArrowRight') {
+                const next = Math.min(SIDEBAR_MAX, cur + step);
+                applySidebarWidth(next);
+                try { localStorage.setItem('sidebarWidth', String(next)); } catch (err) {}
+                e.preventDefault();
+            }
+        });
+
+        // Double-click resets to default
+        resizer.addEventListener('dblclick', () => {
+            applySidebarWidth(SIDEBAR_DEFAULT);
+            try { localStorage.setItem('sidebarWidth', String(SIDEBAR_DEFAULT)); } catch (e) {}
+        });
+    }
+}
+
