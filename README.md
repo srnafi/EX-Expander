@@ -6,7 +6,7 @@
 > Type a shortcode, pick from a popup, and your expansion is inserted — anywhere, instantly.
 
 <!-- Replace with your actual demo GIF -->
-![EX-Expander demo](assets/demo.gif)
+![EX-Expander demo](assets/expander_demo.gif)
 
 ---
 
