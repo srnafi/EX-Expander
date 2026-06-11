@@ -2,11 +2,22 @@
 
 > A lightweight Windows text expander that replaces typed shortcodes with emoji or custom text in real time — system-wide, across any application.
 
+<!-- Replace the line below with your actual GIF once recorded -->
+![EX-Expander demo](assets/demo.gif)
+
+---
+
+## Download
+
+Head to the [**Releases**](https://github.com/srnafi/EX-Expander/releases) page and grab the latest `EX-Expander.exe` — no install required, just run it.
+
+> **WebView2 Runtime required.** Most Windows 10/11 machines already have it. If the app doesn't open, download it from [Microsoft's site](https://developer.microsoft.com/en-us/microsoft-edge/webview2/).
+
 ---
 
 ## What It Does
 
-EX-Expander runs silently in the background and watches your keyboard input. When you type a configured shortcode (e.g. `:smile`), it automatically replaces it with the corresponding expansion (e.g. 😊) — without any extra keystrokes or context-switching.
+EX-Expander runs silently in the background and watches your keyboard input. When you type a configured shortcode (e.g. `:smile`), a popup instantly appears — navigate the suggestion list with arrow keys, pick an entry, and the expansion is inserted right where your cursor is, in any application.
 
 Think of it as autocorrect you fully control, built natively for Windows.
 
@@ -15,14 +26,15 @@ Think of it as autocorrect you fully control, built natively for Windows.
 ## Features
 
 - **Real-time keyboard hook** — intercepts typed tokens before they reach any application
+- **Instant popup navigation** — arrow-key through suggestions and insert expansions without leaving your flow
+- **Inserts anywhere** — works in any focused window: browsers, editors, chat apps, terminals
 - **Configurable trigger character** — use `:`, `;`, or any symbol you prefer
-- **Space or symbol triggering** — expansions fire on spacebar, punctuation, or custom symbols
-- **Popup suggestion menu** — shows matching expansions as you type, à la emoji pickers
-- **Scope/app filtering** — restrict expansions to specific applications or use them globally
+- **Space or symbol triggering** — expansions fire on spacebar, punctuation, or a custom symbol
+- **Scope/app filtering** — restrict expansions to specific applications or run them globally
 - **Persistent storage** — all expansions and settings stored in a local SQLite database
 - **Auto-start on login** — optional Windows registry integration for startup
-- **Settings UI** — configure everything through an embedded HTML/JS settings panel
-- **Clipboard-safe replacements** — saves and restores clipboard state around paste operations
+- **Expansion manager UI** — add, edit, and organize your expansions through a built-in WebView2-powered interface
+- **Clipboard-safe replacements** — saves and restores clipboard state around every paste operation
 
 ---
 
@@ -31,10 +43,10 @@ Think of it as autocorrect you fully control, built natively for Windows.
 | Layer | Technology |
 |---|---|
 | Core engine | C++ (Win32 API) |
-| UI shell | HTML, CSS, JavaScript (embedded WebView) |
-| Database | SQLite (via bundled `external/sqlite`) |
+| Expansion manager UI | WebView2 (HTML, CSS, JavaScript) |
+| Database | SQLite (bundled via `external/sqlite`) |
 | Build system | Visual Studio (`.vcxproj` / `.slnx`) |
-| Installer | NSIS or custom (see `installer/`) |
+| Installer | See `installer/` |
 
 ---
 
@@ -44,28 +56,28 @@ Think of it as autocorrect you fully control, built natively for Windows.
 EX-Expander/
 ├── src/
 │   ├── core/          # Keyboard hook, token matching, replacement logic
-│   ├── ui/            # Popup window, animation, WebView host
+│   ├── ui/            # Popup window, animation, WebView2 host
 │   └── data/          # SQLite database access layer
 ├── include/           # Shared headers (Globals.h, Settings, etc.)
 ├── external/sqlite/   # Bundled SQLite amalgamation
 ├── assets/            # Icons, images, UI assets
 ├── installer/         # Installer scripts/configuration
-├── ANALYSIS.md        # Detailed code analysis and refactoring guide
 ├── EX-Expander.vcxproj
 └── EX-Expander.slnx
 ```
 
 ---
 
-## Getting Started
+## Building from Source
 
 ### Prerequisites
 
 - Windows 10 or later
-- Visual Studio 2022 (with C++ Desktop workload)
-- No external runtime dependencies — SQLite is bundled
+- Visual Studio 2022 (with **Desktop development with C++** workload)
+- WebView2 SDK (included via `packages.config` — restored automatically by NuGet)
+- No other external runtime dependencies — SQLite is bundled
 
-### Build
+### Steps
 
 1. Clone the repository:
    ```bash
@@ -73,37 +85,33 @@ EX-Expander/
    cd EX-Expander
    ```
 
-2. Open `EX-Expander.slnx` in Visual Studio 2022.
+2. Open `EX-Expander.slnx` in Visual Studio 2022. NuGet will restore the WebView2 package automatically.
 
-3. Select the desired configuration (`Debug` or `Release`) and build with **Ctrl+Shift+B**.
+3. Select `Release` | `x64` and build with **Ctrl+Shift+B**.
 
-4. The compiled binary will appear in the output directory (typically `x64/Release/`).
-
-### Run
-
-Launch `EX-Expander.exe` directly. It will appear in the system tray. Use the tray icon to open settings or exit.
+4. The output binary will be at `x64/Release/EX-Expander.exe`.
 
 ---
 
 ## How It Works
 
-1. **Keyboard Hook** — `KeyboardHook.cpp` installs a low-level `WH_KEYBOARD_LL` hook to capture all keystrokes.
-2. **Token Buffer** — Typed characters are accumulated into an input buffer. On a trigger event (space or symbol), the buffer is checked against the expansion database.
-3. **Matching** — `EmojiMatcher` queries SQLite for prefix matches, then confirms an exact match before firing.
-4. **Replacement** — `EmojiReplacer` simulates backspace keystrokes to erase the token, saves the current clipboard, pastes the expansion via `Ctrl+V`, and restores the clipboard asynchronously.
-5. **Popup UI** — If multiple matches exist, a popup window is shown near the cursor with a ranked list of suggestions.
+1. **Keyboard Hook** — installs a low-level `WH_KEYBOARD_LL` hook to capture all keystrokes system-wide.
+2. **Token Buffer** — typed characters accumulate in an input buffer; on a trigger event (space or symbol), the buffer is checked against the expansion database.
+3. **Matching** — queries SQLite for prefix matches, shows the popup if candidates exist, and waits for user selection.
+4. **Popup Navigation** — the user navigates the suggestion list with arrow keys and confirms a selection; the popup closes instantly.
+5. **Replacement** — simulates backspace keystrokes to erase the typed token, saves the current clipboard, pastes the expansion via `Ctrl+V`, and restores the clipboard asynchronously.
 
 ---
 
 ## Configuration
 
-All settings are accessible through the built-in settings panel (tray icon → Settings):
+All settings are accessible through the built-in WebView2 settings panel (system tray icon → Settings):
 
 | Setting | Description | Default |
 |---|---|---|
-| Trigger character | Symbol that starts an expansion (e.g. `:`) | `:` |
+| Trigger character | Symbol that begins an expansion (e.g. `:`) | `:` |
 | Insert trigger | Fire on `space` or on symbol | `space` |
-| Max popup items | Max suggestions shown in popup | `5` |
+| Max popup items | Maximum suggestions shown in the popup | `5` |
 | Popup position | `fixed` or cursor-relative | `fixed` |
 | Scope mode | `global` or `block` (per-app filtering) | `global` |
 | Auto-start | Launch EX-Expander on Windows login | `false` |
@@ -112,44 +120,24 @@ Settings are persisted to the local SQLite database.
 
 ---
 
-## Architecture Notes
+## Roadmap
 
-See [`ANALYSIS.md`](ANALYSIS.md) for a detailed breakdown of the codebase, including:
-
-- Identified code duplication and recommended refactors
-- Error handling gaps in the database layer
-- Clipboard race condition analysis
-- A phased refactoring plan (from quick wins to full OOP migration)
-- Code metric targets (test coverage, duplicate code, global state reduction)
-
----
-
-## Known Limitations & Roadmap
-
-- [ ] No unit test coverage yet (see ANALYSIS.md Phase 3 for dependency injection plan)
-- [ ] Global state scattered across `Globals.h` — planned migration to `Application` singleton
-- [ ] Clipboard restore uses a hardcoded 3000ms delay
-- [ ] Registry access is not yet wrapped in a reusable helper class
-
-**Planned improvements (priority order):**
-1. Extract shared utilities (`ClipboardGuard`, `FindExactMatch`, `Settings` struct)
-2. Improve error handling in the database layer
-3. Introduce dependency injection for testability
-4. Refactor UI management into `PopupManager` class
+- [ ] Unit test coverage (dependency injection refactor planned)
+- [ ] Migrate global state to a single `Application` singleton
+- [ ] Configurable clipboard restore delay (currently hardcoded at 3 s)
+- [ ] Wrap Registry access in a reusable `RegistryHelper` class
+- [ ] Themed popup (light/dark mode)
 
 ---
 
 ## Contributing
 
-Contributions are welcome. If you'd like to help:
+Contributions are welcome!
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/your-feature`)
-3. Commit your changes (`git commit -m 'Add your feature'`)
-4. Push to the branch (`git push origin feature/your-feature`)
-5. Open a Pull Request
-
-Please read [`ANALYSIS.md`](ANALYSIS.md) before contributing — it documents the current architecture, known issues, and where effort is most needed.
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m 'Add your feature'`
+4. Push and open a Pull Request
 
 ---
 
