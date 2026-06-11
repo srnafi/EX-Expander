@@ -93,10 +93,14 @@ namespace
         // -------------------------------------------------------------------
         // 1. CANCEL  –  ESC or TAB while buffer is active
         // -------------------------------------------------------------------
-        if (inTheBuffer && (vk == VK_ESCAPE || vk == VK_TAB))
+        if (vk == VK_ESCAPE || vk == VK_TAB)
         {
-            BufferReset();
-            PopupUpdateInternal();
+            if (IsPopupVisible())
+            {
+                BufferReset();
+                PopupUpdateInternal();
+            }
+
             return CallNextHookEx(g_hook, nCode, wParam, lParam);
         }
 
@@ -113,7 +117,7 @@ namespace
         // -------------------------------------------------------------------
         // 3. POPUP CONFIRM  –  ENTER while navigating the popup list
         // -------------------------------------------------------------------
-        if (inTheBuffer && vk == VK_RETURN && IsPopupNavigating())
+        if (inTheBuffer && vk == VK_RETURN && IsPopupVisible())
         {
             PopupHandleKeyInternal(vk);
             PopupUpdateInternal();

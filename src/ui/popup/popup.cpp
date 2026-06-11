@@ -76,7 +76,6 @@ void PopupInit(HINSTANCE hInst)
 
     State::scrollOffset.snap(0.f);
     State::opacity.snap(0.f);
-    State::currentWidth = UI::SpineWidth;
 
     InitD2D();
 

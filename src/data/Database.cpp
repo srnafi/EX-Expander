@@ -205,13 +205,14 @@ namespace {
         bool createSchema()
         {
             const char* sql = R"SQL(
-                CREATE TABLE IF NOT EXISTS expansions (
-                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                    token      TEXT    NOT NULL UNIQUE COLLATE NOCASE,
-                    value      TEXT    NOT NULL,
-                    type       TEXT    NOT NULL DEFAULT 'text',
-                    created_at TEXT    NOT NULL DEFAULT (datetime('now'))
-                );
+CREATE TABLE IF NOT EXISTS expansions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    value TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'text',
+    description TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 
                 CREATE TABLE IF NOT EXISTS emoji_meta (
                     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -363,15 +364,15 @@ namespace {
         Expansion e;
         e.id = sqlite3_column_int(stmt, 0);
 
-        auto col = [&](int idx) -> std::wstring
-            {
-                const char* txt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, idx));
-                return txt ? Utf8ToWide(txt) : std::wstring{};
+        auto col = [&](int idx) -> std::wstring {
+            const char* txt = reinterpret_cast<const char*>(sqlite3_column_text(stmt, idx));
+            return txt ? Utf8ToWide(txt) : std::wstring{};
             };
 
         e.token = col(1);
         e.value = col(2);
         e.type = col(3);
+        e.description = col(5);  // ← new
 
         std::wstring tagsCsv = col(4);
         if (!tagsCsv.empty())
@@ -382,8 +383,8 @@ namespace {
 
     constexpr const char* kSelectWithTags =
         "SELECT e.id, e.token, e.value, e.type, "
-        "       GROUP_CONCAT(t.tag, ',') "
-        "FROM   expansions e "
+        " GROUP_CONCAT(t.tag, ','), e.description "  // ← add column 5
+        "FROM expansions e "
         "LEFT JOIN emoji_tags t ON t.expansion_id = e.id ";
 
 } // namespace
@@ -410,7 +411,8 @@ void DB_Close()
 bool DB_AddExpansion(const std::wstring& token,
     const std::wstring& value,
     const std::wstring& type,
-    const std::vector<std::wstring>& tags)
+    const std::vector<std::wstring>& tags,
+    const std::wstring& description)
 {
     sqlite3* db = DB();
     if (!db)
@@ -434,7 +436,7 @@ bool DB_AddExpansion(const std::wstring& token,
     Transaction tx(db);
     if (!tx.valid()) return false;
 
-    const char* sql = "INSERT INTO expansions (token, value, type) VALUES (?, ?, ?);";
+    const char* sql = "INSERT INTO expansions (token, value, type, description) VALUES (?, ?, ?, ?);";
 
     Statement s;
     if (!s.prepare(db, sql)) return false;
@@ -442,10 +444,12 @@ bool DB_AddExpansion(const std::wstring& token,
     std::string tokenUtf8 = WideToUtf8(token);
     std::string valueUtf8 = WideToUtf8(value);
     std::string typeUtf8 = WideToUtf8(type);
+    std::string descUtf8 = WideToUtf8(description);
 
     sqlite3_bind_text(s.stmt, 1, tokenUtf8.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(s.stmt, 2, valueUtf8.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(s.stmt, 3, typeUtf8.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(s.stmt, 4, descUtf8.c_str(), -1, SQLITE_TRANSIENT);
 
     if (!s.stepDone(db))
     {
@@ -472,7 +476,8 @@ bool DB_UpdateExpansion(int id,
     const std::wstring& token,
     const std::wstring& value,
     const std::wstring& type,
-    const std::vector<std::wstring>& tags)
+    const std::vector<std::wstring>& tags,
+    const std::wstring& description)
 {
     sqlite3* db = DB();
     if (!db)
@@ -496,7 +501,7 @@ bool DB_UpdateExpansion(int id,
     Transaction tx(db);
     if (!tx.valid()) return false;
 
-    const char* sql = "UPDATE expansions SET token=?, value=?, type=? WHERE id=?;";
+    const char* sql = "UPDATE expansions SET token=?, value=?, type=?, description=? WHERE id=?;";
 
     Statement s;
     if (!s.prepare(db, sql)) return false;
@@ -504,11 +509,13 @@ bool DB_UpdateExpansion(int id,
     std::string tokenUtf8 = WideToUtf8(token);
     std::string valueUtf8 = WideToUtf8(value);
     std::string typeUtf8 = WideToUtf8(type);
+    std::string descUtf8 = WideToUtf8(description);
 
     sqlite3_bind_text(s.stmt, 1, tokenUtf8.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(s.stmt, 2, valueUtf8.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(s.stmt, 3, typeUtf8.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(s.stmt, 4, id);
+    sqlite3_bind_text(s.stmt, 4, descUtf8.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(s.stmt, 5, id);
 
     if (!s.stepDone(db))
     {

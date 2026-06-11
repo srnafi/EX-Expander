@@ -101,6 +101,30 @@ function deleteCustomType(id) {
     applyFilter();
 }
 
+// Dummy installed-app catalogue. Replace via window.setInstalledApps([...]).
+let installedApps = [
+    { id: 'chrome',     name: 'Google Chrome',       path: 'C:\\Program Files\\Google\\Chrome\\chrome.exe',           color: '#ea4335' },
+    { id: 'firefox',    name: 'Mozilla Firefox',     path: 'C:\\Program Files\\Mozilla Firefox\\firefox.exe',         color: '#ff7139' },
+    { id: 'edge',       name: 'Microsoft Edge',      path: 'C:\\Program Files (x86)\\Microsoft\\Edge\\msedge.exe',    color: '#0078d4' },
+    { id: 'vscode',     name: 'Visual Studio Code',  path: 'C:\\Users\\You\\AppData\\Local\\Programs\\Code\\Code.exe', color: '#007acc' },
+    { id: 'vs',         name: 'Visual Studio 2022',  path: 'C:\\Program Files\\Microsoft Visual Studio\\2022\\devenv.exe', color: '#5c2d91' },
+    { id: 'slack',      name: 'Slack',               path: 'C:\\Users\\You\\AppData\\Local\\slack\\slack.exe',         color: '#4a154b' },
+    { id: 'discord',    name: 'Discord',             path: 'C:\\Users\\You\\AppData\\Local\\Discord\\Discord.exe',     color: '#5865f2' },
+    { id: 'teams',      name: 'Microsoft Teams',     path: 'C:\\Users\\You\\AppData\\Local\\Microsoft\\Teams\\Teams.exe', color: '#6264a7' },
+    { id: 'notion',     name: 'Notion',              path: 'C:\\Users\\You\\AppData\\Local\\Programs\\Notion\\Notion.exe', color: '#111111' },
+    { id: 'obsidian',   name: 'Obsidian',            path: 'C:\\Users\\You\\AppData\\Local\\Obsidian\\Obsidian.exe',   color: '#7c3aed' },
+    { id: 'word',       name: 'Microsoft Word',      path: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE', color: '#2b579a' },
+    { id: 'excel',      name: 'Microsoft Excel',     path: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE',   color: '#217346' },
+    { id: 'outlook',    name: 'Microsoft Outlook',   path: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE', color: '#0072c6' },
+    { id: 'spotify',    name: 'Spotify',             path: 'C:\\Users\\You\\AppData\\Roaming\\Spotify\\Spotify.exe',   color: '#1db954' },
+    { id: 'steam',      name: 'Steam',               path: 'C:\\Program Files (x86)\\Steam\\steam.exe',                color: '#1b2838' },
+    { id: 'figma',      name: 'Figma',               path: 'C:\\Users\\You\\AppData\\Local\\Figma\\Figma.exe',         color: '#a259ff' },
+    { id: 'photoshop',  name: 'Adobe Photoshop',     path: 'C:\\Program Files\\Adobe\\Adobe Photoshop\\Photoshop.exe', color: '#001e36' },
+    { id: 'terminal',   name: 'Windows Terminal',    path: 'C:\\Program Files\\WindowsApps\\Terminal\\WindowsTerminal.exe', color: '#0c0c0c' },
+    { id: 'explorer',   name: 'File Explorer',       path: 'C:\\Windows\\explorer.exe',                                color: '#fbbf24' },
+    { id: 'notepad',    name: 'Notepad',             path: 'C:\\Windows\\System32\\notepad.exe',                       color: '#3b82f6' },
+];
+
 let appScopeDraft = { mode: 'block', apps: new Set() };
 let appScopeQuery = '';
 

@@ -54,7 +54,7 @@ void HandleMessage(const std::wstring& msg)
     // -----------------------------------------------------------------------
     if (msg.rfind(L"insert|", 0) == 0)
     {
-        auto parts = SplitW(msg.substr(7), L'|', 4);
+        auto parts = SplitW(msg.substr(7), L'|', 5);
 
         if (parts.size() < 4)
         {
@@ -66,6 +66,7 @@ void HandleMessage(const std::wstring& msg)
         std::wstring value = parts[1];
         std::wstring tagsStr = parts[2];
         std::wstring type = parts[3];
+        std::wstring description = (parts.size() > 4) ? parts[4] : L"";
 
         if (token.empty() || value.empty())
         {
@@ -74,8 +75,7 @@ void HandleMessage(const std::wstring& msg)
         }
 
         auto tags = ParseTags(tagsStr);
-
-        if (DB_AddExpansion(token, value, type, tags))
+        if (DB_AddExpansion(token, value, type, tags, description))
         {
             AppLog::Info(L"HandleMessage: inserted expansion '" + token + L"'");
             SendAllExpansions();
@@ -94,7 +94,7 @@ void HandleMessage(const std::wstring& msg)
     // -----------------------------------------------------------------------
     if (msg.rfind(L"update|", 0) == 0)
     {
-        auto parts = SplitW(msg.substr(7), L'|', 5);
+        auto parts = SplitW(msg.substr(7), L'|', 6);
 
         if (parts.size() < 5)
         {
@@ -107,6 +107,7 @@ void HandleMessage(const std::wstring& msg)
         std::wstring value = parts[2];
         std::wstring tagsStr = parts[3];
         std::wstring type = parts[4];
+        std::wstring description = (parts.size() > 5) ? parts[5] : L"";
 
         if (id <= 0)
         {
@@ -121,8 +122,7 @@ void HandleMessage(const std::wstring& msg)
         }
 
         auto tags = ParseTags(tagsStr);
-
-        if (DB_UpdateExpansion(id, token, value, type, tags))
+        if (DB_UpdateExpansion(id, token, value, type, tags, description))
         {
             AppLog::Info(L"HandleMessage: updated expansion id=" + std::to_wstring(id));
             SendAllExpansions();

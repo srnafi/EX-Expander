@@ -148,6 +148,13 @@
                     <div class="error-message" id="editExpansionError"></div>
                 </div>
                 <div class="form-group">
+                    <label class="form-label" for="editDescriptionInput">
+                        Description <span class="form-label-hint">optional · context, max 30 chars</span>
+                    </label>
+                    <input type="text" class="form-input" id="editDescriptionInput" placeholder="e.g. work email signature" autocomplete="off" maxlength="30" />
+                    <div class="char-counter" id="editDescriptionCount">0 / 30</div>
+                </div>
+                <div class="form-group">
                     <label class="form-label" for="editTypeSelect">Type</label>
                     <div class="type-picker" data-picker="edit">
                         <select class="form-input type-select" id="editTypeSelect"></select>
@@ -368,6 +375,14 @@
                             </div>
                             <div class="error-message" id="nxTypeError"></div>
                         </div>
+                    </div>
+
+                    <div class="nx-field">
+                        <label class="form-label" for="nxDescriptionInput">
+                            Description <span class="form-label-hint">optional · max 30</span>
+                        </label>
+                        <input type="text" class="form-input" id="nxDescriptionInput" placeholder="Short context for this snippet" autocomplete="off" maxlength="30" />
+                        <div class="char-counter" id="nxDescriptionCount">0 / 30</div>
                     </div>
 
                     <div class="nx-field">

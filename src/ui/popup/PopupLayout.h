@@ -13,7 +13,5 @@
 // Returns 0.f if the factory or format is null, or if measurement fails.
 float MeasureTextWidth(const std::wstring& text, IDWriteTextFormat* fmt);
 
-// Compute the popup's required width based on the currently selected
-// expansion's value. Width snaps instantly (no animation).
-// Returns a value between UI::SpineWidth and UI::MaxWidth.
+// Returns UI::MaxWidth.
 float ComputeTargetWidth();

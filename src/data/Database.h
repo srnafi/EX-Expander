@@ -9,12 +9,14 @@
 
 struct Expansion
 {
-    int                       id = 0;
-    std::wstring              token;
-    std::wstring              value;
-    std::wstring              type;       // "emoji" | "text"
-    std::vector<std::wstring> tags;       // optional search tags
+    int                         id = 0;
+    std::wstring                token;
+    std::wstring                value;
+    std::wstring                type;
+    std::vector<std::wstring>   tags;
+    std::wstring                description;  // ← add
 };
+
 
 // ---------------------------------------------------------------------------
 //  Core CRUD  –  public C-style API (ABI-stable, easy to call from anywhere)
@@ -26,13 +28,15 @@ void                   DB_Close();
 bool DB_AddExpansion(const std::wstring& token,
     const std::wstring& value,
     const std::wstring& type,
-    const std::vector<std::wstring>& tags = {});
+    const std::vector<std::wstring>& tags = {},
+    const std::wstring& description = L"");
 
 bool DB_UpdateExpansion(int id,
     const std::wstring& token,
     const std::wstring& value,
     const std::wstring& type,
-    const std::vector<std::wstring>& tags = {});
+    const std::vector<std::wstring>& tags = {},
+    const std::wstring& description = L"");
 
 bool                   DB_DeleteExpansion(int id);
 std::vector<Expansion> DB_GetAllExpansions();

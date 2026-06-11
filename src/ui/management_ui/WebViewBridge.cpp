@@ -31,7 +31,8 @@ namespace nlohmann
                 { "token", WideToUtf8(expansion.token) },
                 { "value", WideToUtf8(expansion.value) },
                 { "type",  WideToUtf8(expansion.type) },
-                { "tags",  tagsArray }
+                { "tags",  tagsArray },
+                { "description", WideToUtf8(expansion.description) }
             };
         }
     };

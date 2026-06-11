@@ -9,41 +9,32 @@
 #include "PopupUtils.h"
 #include "Globals.h"
 #include "AppLog.h"
-
 #include <windows.h>
 #include <algorithm>
-
-// ---------------------------------------------------------------------------
-// PopupHandleKeyInternal
-// Stores the key for this frame. PopupUpdateInternal reads and clears it.
-// ---------------------------------------------------------------------------
 
 void PopupHandleKeyInternal(int vkCode)
 {
     State::lastKey = vkCode;
 }
 
-// ---------------------------------------------------------------------------
-// PopupUpdateInternal
-// ---------------------------------------------------------------------------
-
 void PopupUpdateInternal()
 {
     using namespace State;
 
     // -----------------------------------------------------------------------
-    // HIDE: buffer was cleared (expansion fired or ESC pressed)
+    // HIDE: buffer cleared
     // -----------------------------------------------------------------------
     if (!inTheBuffer)
     {
         StopTimer();
         ShowWindow(hwnd, SW_HIDE);
         centerIndex = 0;
+        State::currentToken.clear();
         scrollOffset.snap(0.f);
         opacity.snap(0.f);
         return;
     }
-    
+
     // -----------------------------------------------------------------------
     // QUERY
     // -----------------------------------------------------------------------
@@ -52,12 +43,15 @@ void PopupUpdateInternal()
     if (token.empty())
     {
         centerIndex = 0;
+        State::currentToken.clear();
         StopTimer();
         ShowWindow(hwnd, SW_HIDE);
         scrollOffset.snap(0.f);
         opacity.snap(0.f);
         return;
     }
+
+    State::currentToken = token;
 
     g_FilteredExpansions = DB_Search(token);
 
@@ -70,8 +64,7 @@ void PopupUpdateInternal()
         ShowWindow(hwnd, SW_HIDE);
         return;
     }
-    
-    // Clamp once up front so all branches below work with a valid index
+
     ClampIndex(centerIndex, total);
 
     // -----------------------------------------------------------------------
@@ -82,14 +75,6 @@ void PopupUpdateInternal()
 
     if (key == VK_DOWN || key == VK_UP)
     {
-        // DOWN: next item slides UP into center from below.
-        //   centerIndex advances, scrollOffset jumps to +1 (below center),
-        //   spring pulls it back to 0 (items glide upward).
-        //
-        // UP: previous item slides DOWN into center from above.
-        //   centerIndex retreats, scrollOffset jumps to -1 (above center),
-        //   spring pulls it back to 0 (items glide downward).
-
         if (key == VK_DOWN)
         {
             centerIndex = (centerIndex + 1) % total;
@@ -102,24 +87,27 @@ void PopupUpdateInternal()
         }
 
         scrollOffset.setTarget(0.f);
-
-        // Width snaps instantly to the new selection — no animation on width
-        currentWidth = ComputeTargetWidth();
     }
     else if (key == VK_RETURN)
     {
-        // Safety check before indexing (ClampIndex already ran above)
         if (centerIndex >= 0 && centerIndex < total)
         {
-            AppLog::Info(L"Popup selected: " + g_FilteredExpansions[centerIndex].token);
-            ReplaceWithExpansion(token, g_FilteredExpansions[centerIndex].value);
+            AppLog::Info(
+                L"Popup selected: " +
+                g_FilteredExpansions[centerIndex].token);
+
+            ReplaceWithExpansion(
+                token,
+                g_FilteredExpansions[centerIndex].value);
         }
         else
         {
-            AppLog::Error(L"PopupUpdateInternal: centerIndex out of range on RETURN");
+            AppLog::Error(
+                L"PopupUpdateInternal: centerIndex out of range on RETURN");
         }
 
         BufferReset();
+        State::currentToken.clear();
         StopTimer();
         ShowWindow(hwnd, SW_HIDE);
         scrollOffset.snap(0.f);
@@ -131,7 +119,10 @@ void PopupUpdateInternal()
     // POSITION / RESIZE WINDOW
     // -----------------------------------------------------------------------
     const int visible = (std::min)(total, g_MaxPopupItems);
-    const int H = visible * UI::ItemHeight + UI::Padding * 2;
+    const int H =
+        visible * UI::ItemHeight +
+        UI::Padding * 2 +
+        static_cast<int>(UI::HeaderHeight);
 
     const bool wasHidden = !IsWindowVisible(hwnd);
 
@@ -153,23 +144,21 @@ void PopupUpdateInternal()
             posY = State::popupFixedY;
         }
 
-        spineLeft = static_cast<float>(posX);
-
-        SetWindowPos(hwnd, nullptr,
+        SetWindowPos(
+            hwnd, nullptr,
             posX, posY,
             static_cast<int>(UI::MaxWidth), H,
             SWP_NOZORDER | SWP_NOACTIVATE);
 
         scrollOffset.snap(0.f);
         opacity.snap(0.f);
-        currentWidth = ComputeTargetWidth();
 
-        ShowWindow(hwnd, SW_SHOWNA);   // show without stealing focus
+        ShowWindow(hwnd, SW_SHOWNA);
     }
     else
     {
-        // Already visible – just resize height for new item count
-        SetWindowPos(hwnd, nullptr,
+        SetWindowPos(
+            hwnd, nullptr,
             0, 0,
             static_cast<int>(UI::MaxWidth), H,
             SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);

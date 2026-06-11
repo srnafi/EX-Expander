@@ -47,7 +47,6 @@ LRESULT CALLBACK PopupProc(HWND hwnd, UINT msg,
             int newX = winStart.x + (cur.x - dragStart.x);
             int newY = winStart.y + (cur.y - dragStart.y);
 
-            spineLeft = static_cast<float>(newX);
             State::popupFixedX = newX;
             State::popupFixedY = newY;
 
