@@ -129,14 +129,5 @@ personal_settings.json
 # Uncomment if emoji.json is generated/downloaded:
 # assets/data/emoji.json
 
-# Keep this if it's part of source:
-# (leave commented out and commit it)
-/emoji.json
-/index.html
-/src - Shortcut.lnk
-/styles.css
-/app.js
-/assets/web/app.js
-/assets/data/emoji.json
-/assets/web/index.html
-/assets/web/styles.css
+ANALYSIS.md
+installer/
