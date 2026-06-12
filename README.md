@@ -23,8 +23,8 @@
 ## Features
 
 - **Popup suggestion list** — as you type, matching expansions appear instantly; navigate with arrow keys and insert with Enter
-- **Works everywhere** — browsers, editors, chat apps, terminals — any focused window
-- **Custom trigger character** — use `:`, `;`, or whatever you prefer
+- **Works everywhere** — browsers, editors, chat apps, full screen games — any focused window and doesn't steal focus
+- **Custom trigger character** — use `:`, `;`
 - **Space or symbol triggering** — choose what fires the expansion
 - **Per-app scoping** — limit expansions to specific apps or keep them global
 - **Expansion manager** — add, edit, and organize expansions through a built-in UI
