@@ -10,8 +10,6 @@ using json = nlohmann::json;
 
 // ===========================================================================
 // NLOHMANN SERIALIZER FOR EXPANSION
-//
-// Teaches nlohmann how to convert an Expansion struct to JSON.
 // ===========================================================================
 
 namespace nlohmann

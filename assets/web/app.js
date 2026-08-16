@@ -1,4 +1,4 @@
-﻿﻿// =====================================================
+﻿﻿﻿// =====================================================
 // ===== STATE =====
 // =====================================================
 let expansions      = [];
@@ -8,7 +8,8 @@ let deleteId        = null;
 let searchTimeout   = null;
 let currentSection  = 'emoji';  // 'text' (transient) | 'emoji' | custom id
 let currentQuery    = '';
-
+const PAGE_SIZE     = 30;
+let currentPage     = 1;
 // =====================================================
 // ===== CONSTANTS =====
 // =====================================================
@@ -197,6 +198,7 @@ function applyFilter() {
             (e.tags || []).some(t => t.toLowerCase().includes(q))
         );
     });
+    currentPage = 1;
     renderTable();
     if (typeof renderTabs === 'function') renderTabs();
 }
@@ -461,6 +463,7 @@ function setupEventListeners() {
     const wrapper      = document.getElementById('insertFormWrapper');
     const themeBtn     = document.getElementById('themeToggle');
     const settingsBtn  = document.getElementById('settingsToggle');
+    const expansionTable = document.getElementById('tableBody');
 
     // ----- Search & Insert -----
     searchInput.addEventListener('input', debounce(handleSearch, 250));
@@ -635,6 +638,8 @@ function setupEventListeners() {
 }
 
 // =====================================================
+// ===== Expansion Scroll =====
+// =====================================================
 // ===== INPUT RESTRICTION =====
 // =====================================================
 
@@ -744,11 +749,17 @@ function renderTable() {
                 }</div>
             </div>
         `;
+        renderPagination(0, 0);
         return;
     }
 
+    const totalPages = Math.max(1, Math.ceil(filteredExpansions.length / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const visibleItems = filteredExpansions.slice(start, start + PAGE_SIZE);
 
-    tableBody.innerHTML = filteredExpansions.map(item => `
+    tableBody.innerHTML = visibleItems.map(item => `
         <div class="table-row" data-id="${item.id}">
             <div class="table-cell-token">${escapeHtml(item.token)}</div>
             <div class="table-cell-expansion">
@@ -782,6 +793,95 @@ function renderTable() {
             </div>
         </div>
     `).join('');
+
+    renderPagination(currentPage, totalPages);
+    const body = document.getElementById('tableBody');
+    if (body) body.scrollTop = 0;
+}
+
+// =====================================================
+// ===== PAGINATION =====
+// =====================================================
+function goToPage(page) {
+    const totalPages = Math.max(1, Math.ceil(filteredExpansions.length / PAGE_SIZE));
+    page = Math.min(Math.max(1, Number(page) || 1), totalPages);
+    if (page === currentPage) return;
+    currentPage = page;
+    renderTable();
+}
+
+// Builds the page-number sequence: 1 2 3 4 5 ... 67 68
+function paginationRange(current, total) {
+    const siblings = 1;
+    const pages = new Set([1, total, current]);
+    for (let i = current - siblings; i <= current + siblings; i++) {
+        if (i > 1 && i < total) pages.add(i);
+    }
+    if (current <= 3) [2, 3, 4].forEach(p => { if (p < total) pages.add(p); });
+    if (current >= total - 2) [total - 1, total - 2, total - 3].forEach(p => { if (p > 1) pages.add(p); });
+
+    const sorted = [...pages].filter(p => p >= 1 && p <= total).sort((a, b) => a - b);
+    const out = [];
+    let prev = 0;
+    for (const p of sorted) {
+        if (prev && p - prev > 1) out.push('...');
+        out.push(p);
+        prev = p;
+    }
+    return out;
+}
+
+function renderPagination(current, total) {
+    const el = document.getElementById('pagination');
+    if (!el) return;
+
+    if (!total || total <= 1) {
+        el.innerHTML = '';
+        el.classList.add('hidden');
+        return;
+    }
+    el.classList.remove('hidden');
+
+    const btn = (label, page, opts = {}) => `
+        <button type="button" class="page-btn${opts.active ? ' active' : ''}${opts.nav ? ' nav' : ''}"
+                ${opts.disabled ? 'disabled' : ''}
+                ${opts.title ? `title="${opts.title}"` : ''}
+                onclick="goToPage(${page})">${label}</button>`;
+
+    const numbers = paginationRange(current, total).map(p =>
+        p === '...'
+            ? '<span class="page-ellipsis">…</span>'
+            : btn(p, p, { active: p === current })
+    ).join('');
+
+    el.innerHTML = `
+        <div class="pagination-inner">
+            ${btn('&laquo;', 1, { nav: true, disabled: current === 1, title: 'First page' })}
+            ${btn('&lsaquo;', current - 1, { nav: true, disabled: current === 1, title: 'Previous page' })}
+            <div class="page-numbers">${numbers}</div>
+            ${btn('&rsaquo;', current + 1, { nav: true, disabled: current === total, title: 'Next page' })}
+            ${btn('&raquo;', total, { nav: true, disabled: current === total, title: 'Last page' })}
+            <div class="page-jump">
+                <input type="number" min="1" max="${total}" class="page-jump-input" id="pageJumpInput"
+                       placeholder="${current}" aria-label="Go to page" />
+                <button type="button" class="page-btn nav" onclick="handlePageJump()" title="Go to page">Go</button>
+            </div>
+            <span class="page-count">${total} pages</span>
+        </div>
+    `;
+
+    const jump = document.getElementById('pageJumpInput');
+    if (jump) jump.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); handlePageJump(); }
+    });
+}
+
+function handlePageJump() {
+    const input = document.getElementById('pageJumpInput');
+    if (!input) return;
+    const val = parseInt(input.value, 10);
+    if (!Number.isNaN(val)) goToPage(val);
+    input.value = '';
 }
 
 // =====================================================
