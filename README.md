@@ -39,6 +39,3 @@ C++ · Win32 API · WebView2 · SQLite
 
 ---
 
-## License
-
-All rights reserved © srnafi
